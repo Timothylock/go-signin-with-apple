@@ -15,6 +15,8 @@ TODO
 ```
 go get github.com/Timothylock/go-signin-with-apple
 import github.com/Timothylock/go-signin-with-apple
+
+package: applesignin
 ```
 
 # Usage
@@ -36,7 +38,7 @@ key_id := "XXXXXXXXXX"
 
 secret := `Your key that starts in -----BEGIN PRIVATE KEY-----`
 
-secret, _ := GenerateClientSecret(secret, team_id, client_id, key_id)
+secret, _ := applesignin.GenerateClientSecret(secret, team_id, client_id, key_id)
 fmt.Println(secret)
 ```
 
