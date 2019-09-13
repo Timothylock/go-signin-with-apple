@@ -1,11 +1,14 @@
 package applesignin
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"net/url"
 	"time"
+
+	"github.com/tideland/gorest/jwt"
 )
 
 const (
@@ -39,18 +42,22 @@ func New() *Client {
 
 // Verify sends the ValidationRequest and gets validation result
 func (c *Client) Verify(ctx context.Context, reqBody ValidationRequest, result interface{}) error {
-	b := new(bytes.Buffer)
-	if err := json.NewEncoder(b).Encode(reqBody); err != nil {
-		return err
-	}
+	data := url.Values{}
+	data.Set("client_id", reqBody.ClientID)
+	data.Set("client_secret", reqBody.ClientSecret)
+	data.Set("code", reqBody.Code)
+	data.Set("refresh_token", reqBody.RefreshToken)
+	data.Set("redirect_uri", reqBody.RedirectURI)
+	data.Set("grant_type", "authorization_code")
 
-	req, err := http.NewRequest("POST", c.validationURL, b)
+	req, err := http.NewRequest("POST", c.validationURL+"?"+data.Encode(), nil)
 	if err != nil {
 		return err
 	}
 
 	req.Header.Set("Content-Type", ContentType)
 	req = req.WithContext(ctx)
+
 	resp, err := c.client.Do(req)
 	if err != nil {
 		return err
@@ -58,4 +65,14 @@ func (c *Client) Verify(ctx context.Context, reqBody ValidationRequest, result i
 	defer resp.Body.Close()
 
 	return json.NewDecoder(resp.Body).Decode(result)
+}
+
+// GetUniqueID decodes the id_token response and returns the unique subject ID to identify the user
+func GetUniqueID(idToken string) (string, error) {
+	j, err := jwt.Decode(idToken)
+	if err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("%v", j.Claims()["sub"]), nil
 }

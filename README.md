@@ -7,10 +7,6 @@ go-signin-with-apple verifies the `sign-in with apple` token.
 
 # This is currently incomplete but I'm adding things to it all the time
 
-Current API Documents:
-
-TODO
-
 # Installation
 ```
 go get github.com/Timothylock/go-signin-with-apple
@@ -44,6 +40,30 @@ fmt.Println(secret)
 
 ## Validating Token
 TODO (coming soon!)
+
+## Obtaining Unique Subject ID
+Apple as of right now unfortunately does not return an email or name that you can use. If youw ant to use those, the 
+clients have access to those.
+
+A subject ID is however included in the `id_token` field of the response which when decoded, has a subject that can 
+uniquely identify the user. A helper function is included to obtain this subject ID: `GetUniqueID`
+
+```
+... Code to validate token ...
+
+reflect.TypeOf(response)         // ValidationResponse
+reflect.TypeOf(response.IdToken) // String
+
+
+id := applesignin.GetUniqueID(response.IdToken)
+fmt.Println(id)
+```
+
+# Tests
+Coming soon ._.
+
+# Contributing
+TODO
 
 # License
 go-signin-with-apple verifies is licensed under the MIT.

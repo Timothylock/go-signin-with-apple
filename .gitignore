@@ -1,2 +1,3 @@
 .idea/
 priv_test.go
+priv.go
