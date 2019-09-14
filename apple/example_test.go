@@ -1,4 +1,4 @@
-package applesignin
+package apple
 
 import (
 	"context"
@@ -14,13 +14,13 @@ Here are some examples on how to call the code and in what order to do so
 
 func TestValidatingTokenAndObtainingID(t *testing.T) {
 	// Your 10-character Team ID
-	team_id := "ZFWYR8EQ94"
+	team_id := "XXXXXXXXXX"
 
 	// ClientID is the "Services ID" value that you get when navigating to your "sign in with Apple"-enabled service ID
-	client_id := "com.wattpad.signinwithapple"
+	client_id := "com.your.app"
 
 	// Find the 10-char Key ID value from the portal
-	key_id := "S4MLYS55TQ"
+	key_id := "XXXXXXXXXX"
 
 	// The contents of the p8 file/key you downloaded when you made the key in the portal
 	secret := `-----BEGIN PRIVATE KEY-----

@@ -1,4 +1,4 @@
-package applesignin
+package apple
 
 // Based off of https://developer.apple.com/documentation/signinwithapplerestapi/generate_and_validate_tokens
 type ValidationRequest struct {

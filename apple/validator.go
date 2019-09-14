@@ -1,4 +1,4 @@
-package applesignin
+package apple
 
 import (
 	"context"
