@@ -1,11 +1,11 @@
-package apple
+package example
 
 import (
 	"context"
 	"fmt"
 	"testing"
 
-	applesignin "github.com/Timothylock/go-signin-with-apple"
+	"github.com/Timothylock/go-signin-with-apple/apple"
 )
 
 /*
@@ -28,16 +28,16 @@ func TestValidatingTokenAndObtainingID(t *testing.T) {
 	-----END PRIVATE KEY-----`
 
 	// Generate the client secret used to authenticate with Apple's validation servers
-	secret, err := applesignin.GenerateClientSecret(secret, team_id, client_id, key_id)
+	secret, err := apple.GenerateClientSecret(secret, team_id, client_id, key_id)
 	if err != nil {
 		fmt.Println(err.Error())
 		return
 	}
 
 	// Generate a new validation client
-	client := applesignin.New()
+	client := apple.New()
 
-	vReq := applesignin.ValidationRequest{
+	vReq := apple.ValidationRequest{
 		ClientID:     client_id,
 		ClientSecret: secret,
 		Code:         "the_token_to_validatte",
@@ -45,7 +45,7 @@ func TestValidatingTokenAndObtainingID(t *testing.T) {
 		GrantType:    "authorization_code",
 	}
 
-	var resp ValidationResponse
+	var resp apple.ValidationResponse
 
 	// Do the verification
 	err = client.Verify(context.Background(), vReq, &resp)
@@ -54,7 +54,7 @@ func TestValidatingTokenAndObtainingID(t *testing.T) {
 		return
 	}
 
-	unique, err := GetUniqueID(resp.IdToken)
+	unique, err := apple.GetUniqueID(resp.IdToken)
 	if err != nil {
 		fmt.Println(err.Error())
 		return

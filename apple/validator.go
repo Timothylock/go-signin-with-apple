@@ -40,6 +40,17 @@ func New() *Client {
 	return client
 }
 
+// New creates a Client object with a custom URL provided
+func NewWithURL(url string) *Client {
+	client := &Client{
+		validationURL: url,
+		client: &http.Client{
+			Timeout: 5 * time.Second,
+		},
+	}
+	return client
+}
+
 // Verify sends the ValidationRequest and gets validation result
 func (c *Client) Verify(ctx context.Context, reqBody ValidationRequest, result interface{}) error {
 	data := url.Values{}
