@@ -1,6 +1,6 @@
 package apple
 
-// Based off of https://developer.apple.com/documentation/signinwithapplerestapi/generate_and_validate_tokens
+// ValidationRequest is based off of https://developer.apple.com/documentation/signinwithapplerestapi/generate_and_validate_tokens
 type ValidationRequest struct {
 	// ClientID is the "Services ID" value that you get when navigating to your "sign in with Apple"-enabled service ID
 	ClientID string
@@ -27,7 +27,7 @@ type ValidationRequest struct {
 	GrantType string
 }
 
-// Based off of https://developer.apple.com/documentation/signinwithapplerestapi/tokenresponse
+// ValidationResponse is based off of https://developer.apple.com/documentation/signinwithapplerestapi/tokenresponse
 type ValidationResponse struct {
 	// (Reserved for future use) A token used to access allowed data. Currently, no data set has been defined for access.
 	AccessToken string `json:"access_token"`
@@ -42,7 +42,7 @@ type ValidationResponse struct {
 	RefreshToken string `json:"refresh_token"`
 
 	// A JSON Web Token that contains the user’s identity information.
-	IdToken string `json:"id_token"`
+	IDToken string `json:"id_token"`
 
 	// Used to capture any error returned by the endpoint. Do not trust the response if this error is not nil
 	Error string `json:"error"`

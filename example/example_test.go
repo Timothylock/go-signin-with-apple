@@ -14,13 +14,13 @@ Here are some examples on how to call the code and in what order to do so
 
 func TestValidatingTokenAndObtainingID(t *testing.T) {
 	// Your 10-character Team ID
-	team_id := "XXXXXXXXXX"
+	teamID := "XXXXXXXXXX"
 
 	// ClientID is the "Services ID" value that you get when navigating to your "sign in with Apple"-enabled service ID
-	client_id := "com.your.app"
+	clientID := "com.your.app"
 
 	// Find the 10-char Key ID value from the portal
-	key_id := "XXXXXXXXXX"
+	keyID := "XXXXXXXXXX"
 
 	// The contents of the p8 file/key you downloaded when you made the key in the portal
 	secret := `-----BEGIN PRIVATE KEY-----
@@ -28,7 +28,7 @@ func TestValidatingTokenAndObtainingID(t *testing.T) {
 	-----END PRIVATE KEY-----`
 
 	// Generate the client secret used to authenticate with Apple's validation servers
-	secret, err := apple.GenerateClientSecret(secret, team_id, client_id, key_id)
+	secret, err := apple.GenerateClientSecret(secret, teamID, clientID, keyID)
 	if err != nil {
 		fmt.Println(err.Error())
 		return
@@ -38,7 +38,7 @@ func TestValidatingTokenAndObtainingID(t *testing.T) {
 	client := apple.New()
 
 	vReq := apple.ValidationRequest{
-		ClientID:     client_id,
+		ClientID:     clientID,
 		ClientSecret: secret,
 		Code:         "the_token_to_validatte",
 		RedirectURI:  "https://example.com", // This URL must be validated with apple in your service
@@ -54,7 +54,7 @@ func TestValidatingTokenAndObtainingID(t *testing.T) {
 		return
 	}
 
-	unique, err := apple.GetUniqueID(resp.IdToken)
+	unique, err := apple.GetUniqueID(resp.IDToken)
 	if err != nil {
 		fmt.Println(err.Error())
 		return

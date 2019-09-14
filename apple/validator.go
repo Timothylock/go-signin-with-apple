@@ -40,7 +40,7 @@ func New() *Client {
 	return client
 }
 
-// New creates a Client object with a custom URL provided
+// NewWithURL creates a Client object with a custom URL provided
 func NewWithURL(url string) *Client {
 	client := &Client{
 		validationURL: url,
