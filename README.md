@@ -39,7 +39,32 @@ fmt.Println(secret)
 ```
 
 ## Validating Token
-TODO (coming soon!)
+To validate a token, you must create a new validation `Client` then call the `Verify` function.
+
+```
+// Generate a new validation client
+client := applesignin.New()
+
+vReq := applesignin.ValidationRequest{
+	ClientID:     client_id,
+	ClientSecret: secret,                    // generated from the above step
+	Code:         "the_token_to_validatte",
+	RedirectURI:  "https://example.com",     // This URL must be validated with apple in your service
+	GrantType:    "authorization_code",
+}
+
+var resp ValidationResponse
+
+// Do the verification
+err = client.Verify(context.Background(), vReq, &resp)
+if err != nil {
+	fmt.Println(err.Error())
+	return
+}
+
+fmt.Println(resp)
+
+```
 
 ## Obtaining Unique Subject ID
 Apple as of right now unfortunately does not return an email or name that you can use. If youw ant to use those, the 
