@@ -6,6 +6,10 @@ go-signin-with-apple
 
 go-signin-with-apple verifies the `sign-in with apple` token.
 
+## Known Bugs
+- Currently only validates non-app tokens (e.g. web signin)
+- The actual validation part fails (oops). The secret generation works fine! 
+
 ## Installation
 ```
 go get github.com/Timothylock/go-signin-with-apple
