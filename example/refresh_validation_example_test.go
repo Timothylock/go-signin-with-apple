@@ -9,7 +9,7 @@ import (
 )
 
 /*
-Here are some examples on how to call the code and in what order to do so
+This example shows you how to validate a refresh token
 */
 
 func TestValidatingRefreshToken(t *testing.T) {

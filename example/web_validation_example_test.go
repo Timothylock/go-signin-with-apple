@@ -9,7 +9,7 @@ import (
 )
 
 /*
-Here are some examples on how to call the code and in what order to do so
+This example shows you how to validate a web token for the first time
 */
 
 func TestValidatingTokenAndObtainingID(t *testing.T) {
