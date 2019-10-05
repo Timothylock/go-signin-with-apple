@@ -52,3 +52,18 @@ type ValidationResponse struct {
 	// Used to capture any error returned by the endpoint. Do not trust the response if this error is not nil
 	Error string `json:"error"`
 }
+
+// RefreshResponse is a subset of ValidationResponse returned by Apple
+type RefreshResponse struct {
+	// (Reserved for future use) A token used to access allowed data. Currently, no data set has been defined for access.
+	AccessToken string `json:"access_token"`
+
+	// The type of access token. It will always be "bearer".
+	TokenType string `json:"token_type"`
+
+	// The amount of time, in seconds, before the access token expires. You can revalidate with this token
+	ExpiresIn int `json:"expires_in"`
+
+	// Used to capture any error returned by the endpoint. Do not trust the response if this error is not nil
+	Error string `json:"error"`
+}
