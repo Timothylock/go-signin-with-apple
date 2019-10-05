@@ -15,7 +15,7 @@ import (
 const (
 	// ValidationURL is the endpoint for verifying tokens
 	ValidationURL string = "https://appleid.apple.com/auth/token"
-	// Content-type is the one expected by Apple
+	// ContentType is the one expected by Apple
 	ContentType string = "application/x-www-form-urlencoded"
 	// UserAgent is required by Apple or the request will fail
 	UserAgent string = "go-signin-with-apple"
