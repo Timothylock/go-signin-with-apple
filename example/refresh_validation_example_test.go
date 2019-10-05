@@ -9,10 +9,10 @@ import (
 )
 
 /*
-Here are some examples on how to call the code and in what order to do so
+This example shows you how to validate a refresh token
 */
 
-func TestValidatingTokenAndObtainingID(t *testing.T) {
+func TestValidatingRefreshToken(t *testing.T) {
 	// Your 10-character Team ID
 	teamID := "XXXXXXXXXX"
 
@@ -37,17 +37,16 @@ YOUR_SECRET_PRIVATE_KEY
 	// Generate a new validation client
 	client := apple.New()
 
-	vReq := apple.WebValidationTokenRequest{
+	vReq := apple.ValidationRefreshRequest{
 		ClientID:     clientID,
 		ClientSecret: secret,
-		Code:         "the_token_to_validate",
-		RedirectURI:  "https://example.com", // This URL must be validated with apple in your service
+		RefreshToken: "the_token_to_validate",
 	}
 
-	var resp apple.ValidationResponse
+	var resp apple.RefreshResponse
 
 	// Do the verification
-	err = client.VerifyWebToken(context.Background(), vReq, &resp)
+	err = client.VerifyRefreshToken(context.Background(), vReq, &resp)
 	if err != nil {
 		fmt.Println("error verifying: " + err.Error())
 		return
@@ -58,12 +57,6 @@ YOUR_SECRET_PRIVATE_KEY
 		return
 	}
 
-	unique, err := apple.GetUniqueID(resp.IDToken)
-	if err != nil {
-		fmt.Println("failed to get unique ID: " + err.Error())
-		return
-	}
-
 	// Voila!
-	fmt.Println(unique)
+	fmt.Println(resp)
 }
