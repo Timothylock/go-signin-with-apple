@@ -37,18 +37,17 @@ YOUR_SECRET_PRIVATE_KEY
 	// Generate a new validation client
 	client := apple.New()
 
-	vReq := apple.ValidationRequest{
+	vReq := apple.WebValidationTokenRequest{
 		ClientID:     clientID,
 		ClientSecret: secret,
 		Code:         "the_token_to_validate",
 		RedirectURI:  "https://example.com", // This URL must be validated with apple in your service
-		GrantType:    "authorization_code",
 	}
 
 	var resp apple.ValidationResponse
 
 	// Do the verification
-	err = client.VerifyNonAppToken(context.Background(), vReq, &resp)
+	err = client.VerifyWebToken(context.Background(), vReq, &resp)
 	if err != nil {
 		fmt.Println("error verifying: " + err.Error())
 		return
