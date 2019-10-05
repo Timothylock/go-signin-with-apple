@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/tideland/gorest/jwt"
@@ -14,13 +15,17 @@ import (
 const (
 	// ValidationURL is the endpoint for verifying tokens
 	ValidationURL string = "https://appleid.apple.com/auth/token"
-	// ContentType is the request content-type for apple store.
-	ContentType string = "application/json; charset=utf-8"
+	// ContentType is the one expected by Apple
+	ContentType string = "application/x-www-form-urlencoded"
+	// UserAgent is required by Apple or the request will fail
+	UserAgent string = "go-signin-with-apple"
+	// AcceptHeader is the content that we are willing to accept
+	AcceptHeader string = "application/json"
 )
 
 // ValidationClient is an interface to call the validation API
 type ValidationClient interface {
-	Verify(ctx context.Context, token string, resp interface{}) error
+	VerifyNonAppToken(ctx context.Context, token string, resp interface{}) error
 }
 
 // Client implements ValidationClient
@@ -51,31 +56,16 @@ func NewWithURL(url string) *Client {
 	return client
 }
 
-// Verify sends the ValidationRequest and gets validation result
-func (c *Client) Verify(ctx context.Context, reqBody ValidationRequest, result interface{}) error {
+// VerifyWebToken sends the WebValidationTokenRequest and gets validation result
+func (c *Client) VerifyWebToken(ctx context.Context, reqBody WebValidationTokenRequest, result interface{}) error {
 	data := url.Values{}
 	data.Set("client_id", reqBody.ClientID)
 	data.Set("client_secret", reqBody.ClientSecret)
 	data.Set("code", reqBody.Code)
-	data.Set("refresh_token", reqBody.RefreshToken)
 	data.Set("redirect_uri", reqBody.RedirectURI)
 	data.Set("grant_type", "authorization_code")
 
-	req, err := http.NewRequest("POST", c.validationURL+"?"+data.Encode(), nil)
-	if err != nil {
-		return err
-	}
-
-	req.Header.Set("Content-Type", ContentType)
-	req = req.WithContext(ctx)
-
-	resp, err := c.client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	return json.NewDecoder(resp.Body).Decode(result)
+	return c.doRequest(ctx, &result, data)
 }
 
 // GetUniqueID decodes the id_token response and returns the unique subject ID to identify the user
@@ -86,4 +76,24 @@ func GetUniqueID(idToken string) (string, error) {
 	}
 
 	return fmt.Sprintf("%v", j.Claims()["sub"]), nil
+}
+
+func (c *Client) doRequest(ctx context.Context, result interface{}, data url.Values) error {
+	req, err := http.NewRequest("POST", c.validationURL, strings.NewReader(data.Encode()))
+	if err != nil {
+		return err
+	}
+
+	req.Header.Add("content-type", ContentType)
+	req.Header.Add("accept", AcceptHeader)
+	req.Header.Add("user-agent", UserAgent) // apple requires a user agent
+
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+
+	defer res.Body.Close()
+
+	return json.NewDecoder(res.Body).Decode(result)
 }

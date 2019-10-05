@@ -24,39 +24,43 @@ func TestValidatingTokenAndObtainingID(t *testing.T) {
 
 	// The contents of the p8 file/key you downloaded when you made the key in the portal
 	secret := `-----BEGIN PRIVATE KEY-----
-	YOUR_SECRET_PRIVATE_KEY
-	-----END PRIVATE KEY-----`
+YOUR_SECRET_PRIVATE_KEY
+-----END PRIVATE KEY-----`
 
 	// Generate the client secret used to authenticate with Apple's validation servers
 	secret, err := apple.GenerateClientSecret(secret, teamID, clientID, keyID)
 	if err != nil {
-		fmt.Println(err.Error())
+		fmt.Println("error generating secret: " + err.Error())
 		return
 	}
 
 	// Generate a new validation client
 	client := apple.New()
 
-	vReq := apple.ValidationRequest{
+	vReq := apple.WebValidationTokenRequest{
 		ClientID:     clientID,
 		ClientSecret: secret,
-		Code:         "the_token_to_validatte",
+		Code:         "the_token_to_validate",
 		RedirectURI:  "https://example.com", // This URL must be validated with apple in your service
-		GrantType:    "authorization_code",
 	}
 
 	var resp apple.ValidationResponse
 
 	// Do the verification
-	err = client.Verify(context.Background(), vReq, &resp)
+	err = client.VerifyWebToken(context.Background(), vReq, &resp)
 	if err != nil {
-		fmt.Println(err.Error())
+		fmt.Println("error verifying: " + err.Error())
+		return
+	}
+
+	if resp.Error != "" {
+		fmt.Println("apple returned an error: " + resp.Error)
 		return
 	}
 
 	unique, err := apple.GetUniqueID(resp.IDToken)
 	if err != nil {
-		fmt.Println(err.Error())
+		fmt.Println("failed to get unique ID: " + err.Error())
 		return
 	}
 

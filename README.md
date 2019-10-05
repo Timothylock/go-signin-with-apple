@@ -8,7 +8,6 @@ go-signin-with-apple verifies the `sign-in with apple` token.
 
 ## Known Bugs
 - Currently only validates non-app tokens (e.g. web signin)
-- The actual validation part fails (oops). The secret generation works fine! 
 
 ## Installation
 ```
@@ -59,7 +58,7 @@ vReq := apple.ValidationRequest{
 }
 
 // Do the verification
-_ = client.Verify(context.Background(), vReq, &resp)
+_ = client.VerifyNonAppToken(context.Background(), vReq, &resp)
 unique, _ := apple.GetUniqueID(resp.IDToken)
 
 // Voila!
@@ -93,7 +92,7 @@ fmt.Println(secret)
 ```
 
 ### Validating Token
-To validate a token, you must create a new validation `Client` then call the `Verify` function.
+To validate a token, you must create a new validation `Client` then call the respective `Verify` function.
 
 ```
 import "github.com/Timothylock/go-signin-with-apple/apple"
@@ -114,7 +113,7 @@ vReq := apple.ValidationRequest{
 var resp apple.ValidationResponse
 
 // Do the verification
-err = client.Verify(context.Background(), vReq, &resp)
+err = client.VerifyNonAppToken(context.Background(), vReq, &resp)
 if err != nil {
 	fmt.Println(err.Error())
 	return
@@ -150,7 +149,7 @@ fmt.Println(id)
 Coming soon ._.
 
 ## Contributing
-TODO
+Submit a PR and lets get going! 
 
 ## License
 go-signin-with-apple verifies is licensed under the MIT.
