@@ -1,6 +1,12 @@
 package apple
 
 import (
+	"context"
+	"encoding/json"
+	"io/ioutil"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -54,4 +60,63 @@ func TestGetUniqueID(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestDoRequestSuccess(t *testing.T) {
+	s, err := json.Marshal(ValidationResponse{
+		IDToken: "123",
+	})
+	assert.NoError(t, err)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, ContentType, r.Header.Get("content-type"))
+		assert.Equal(t, AcceptHeader, r.Header.Get("accept"))
+		assert.Equal(t, UserAgent, r.Header.Get("user-agent"))
+
+		w.WriteHeader(200)
+		w.Write([]byte(s))
+	}))
+	defer srv.Close()
+
+	var actual ValidationResponse
+
+	c := NewWithURL(srv.URL)
+	assert.NoError(t, c.doRequest(context.Background(), &actual, url.Values{}))
+	assert.Equal(t, "123", actual.IDToken)
+}
+
+func TestDoRequestBadServer(t *testing.T) {
+	var actual ValidationResponse
+	c := NewWithURL("foo.test")
+	assert.Error(t, c.doRequest(context.Background(), &actual, url.Values{}))
+}
+
+func TestDoRequestNewRequestFail(t *testing.T) {
+	var actual ValidationResponse
+	c := NewWithURL("http://fo  o.test")
+	assert.Error(t, c.doRequest(context.Background(), &actual, nil))
+}
+
+func TestVerifyNonAppToken(t *testing.T) {
+	req := WebValidationTokenRequest{
+		ClientID:     "123",
+		ClientSecret: "foo",
+		Code:         "bar",
+		RedirectURI:  "http://foo.test",
+	}
+	var resp ValidationResponse
+
+	srv := setupServerCompareURL(t, "client_id=123&client_secret=foo&code=bar&grant_type=authorization_code&redirect_uri=http%3A%2F%2Ffoo.test")
+	c := NewWithURL(srv.URL)
+	c.VerifyWebToken(context.Background(), req, resp) // We aren't testing whether this will error
+}
+
+// setupServerCompareURL sets up an httptest server to compare the given URLs. You must close the server
+// yourself when done
+func setupServerCompareURL(t *testing.T, expectedBody string) *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		s, err := ioutil.ReadAll(r.Body)
+		assert.NoError(t, err)
+		assert.Equal(t, expectedBody, string(s))
+	}))
 }

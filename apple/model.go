@@ -1,7 +1,7 @@
 package apple
 
-// ValidationRequest is based off of https://developer.apple.com/documentation/signinwithapplerestapi/generate_and_validate_tokens
-type ValidationRequest struct {
+// WebValidationTokenRequest is based off of https://developer.apple.com/documentation/signinwithapplerestapi/generate_and_validate_tokens
+type WebValidationTokenRequest struct {
 	// ClientID is the "Services ID" value that you get when navigating to your "sign in with Apple"-enabled service ID
 	ClientID string
 
@@ -13,18 +13,10 @@ type ValidationRequest struct {
 	// The code is single use only and valid for five minutes.
 	Code string
 
-	// RefreshToken is the refresh token received during the authorization request. Only required when validating
-	// refresh token
-	RefreshToken string
-
 	// RedirectURI is the destination URI the code was originally sent to.
 	// Redirect URLs must be registered with Apple. You can register up to 10. Apple will throw an error with IP address
 	// URLs on the authorization screen, and will not let you add localhost in the developer portal.
 	RedirectURI string
-
-	// GrantType determines how the client interacts with the server. For authorization code validation,
-	// use "authorization_code". For refresh token validation requests, use "refresh_token".
-	GrantType string
 }
 
 // ValidationResponse is based off of https://developer.apple.com/documentation/signinwithapplerestapi/tokenresponse

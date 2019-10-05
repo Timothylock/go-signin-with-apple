@@ -15,6 +15,12 @@ import (
 const (
 	// ValidationURL is the endpoint for verifying tokens
 	ValidationURL string = "https://appleid.apple.com/auth/token"
+	// Content-type is the one expected by Apple
+	ContentType string = "application/x-www-form-urlencoded"
+	// UserAgent is required by Apple or the request will fail
+	UserAgent string = "go-signin-with-apple"
+	// AcceptHeader is the content that we are willing to accept
+	AcceptHeader string = "application/json"
 )
 
 // ValidationClient is an interface to call the validation API
@@ -50,8 +56,8 @@ func NewWithURL(url string) *Client {
 	return client
 }
 
-// VerifyNonAppToken sends the ValidationRequest and gets validation result
-func (c *Client) VerifyNonAppToken(ctx context.Context, reqBody ValidationRequest, result interface{}) error {
+// VerifyWebToken sends the WebValidationTokenRequest and gets validation result
+func (c *Client) VerifyWebToken(ctx context.Context, reqBody WebValidationTokenRequest, result interface{}) error {
 	data := url.Values{}
 	data.Set("client_id", reqBody.ClientID)
 	data.Set("client_secret", reqBody.ClientSecret)
@@ -59,23 +65,7 @@ func (c *Client) VerifyNonAppToken(ctx context.Context, reqBody ValidationReques
 	data.Set("redirect_uri", reqBody.RedirectURI)
 	data.Set("grant_type", "authorization_code")
 
-	req, err := http.NewRequest("POST", c.validationURL, strings.NewReader(data.Encode()))
-	if err != nil {
-		return err
-	}
-
-	req.Header.Add("content-type", "application/x-www-form-urlencoded")
-	req.Header.Add("accept", "application/json")
-	req.Header.Add("user-agent", "go-signin-with-apple") // apple requires a user agent
-
-	res, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return err
-	}
-
-	defer res.Body.Close()
-
-	return json.NewDecoder(res.Body).Decode(result)
+	return c.doRequest(ctx, &result, data)
 }
 
 // GetUniqueID decodes the id_token response and returns the unique subject ID to identify the user
@@ -86,4 +76,24 @@ func GetUniqueID(idToken string) (string, error) {
 	}
 
 	return fmt.Sprintf("%v", j.Claims()["sub"]), nil
+}
+
+func (c *Client) doRequest(ctx context.Context, result interface{}, data url.Values) error {
+	req, err := http.NewRequest("POST", c.validationURL, strings.NewReader(data.Encode()))
+	if err != nil {
+		return err
+	}
+
+	req.Header.Add("content-type", ContentType)
+	req.Header.Add("accept", AcceptHeader)
+	req.Header.Add("user-agent", UserAgent) // apple requires a user agent
+
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+
+	defer res.Body.Close()
+
+	return json.NewDecoder(res.Body).Decode(result)
 }
