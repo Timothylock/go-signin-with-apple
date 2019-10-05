@@ -6,8 +6,9 @@ go-signin-with-apple
 
 go-signin-with-apple verifies the `sign-in with apple` token.
 
-## Known Bugs
-- Currently only validates non-app tokens (e.g. web signin)
+## TODO
+- Validate Refresh Tokens
+- Validate App Tokens (currently this only validates web tokens)
 
 ## Installation
 ```
@@ -149,7 +150,7 @@ fmt.Println(id)
 Coming soon ._.
 
 ## Contributing
-Submit a PR and lets get going! 
+Make sure tests pass, submit a PR, and lets get going! 
 
 ## License
 go-signin-with-apple verifies is licensed under the MIT.

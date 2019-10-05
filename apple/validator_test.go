@@ -111,6 +111,19 @@ func TestVerifyNonAppToken(t *testing.T) {
 	c.VerifyWebToken(context.Background(), req, resp) // We aren't testing whether this will error
 }
 
+func TestVerifyRefreshToken(t *testing.T) {
+	req := ValidationRefreshRequest{
+		ClientID:     "123",
+		ClientSecret: "foo",
+		RefreshToken: "bar",
+	}
+	var resp ValidationResponse
+
+	srv := setupServerCompareURL(t, "client_id=123&client_secret=foo&grant_type=refresh_token&refresh_token=bar")
+	c := NewWithURL(srv.URL)
+	c.VerifyRefreshToken(context.Background(), req, resp) // We aren't testing whether this will error
+}
+
 // setupServerCompareURL sets up an httptest server to compare the given URLs. You must close the server
 // yourself when done
 func setupServerCompareURL(t *testing.T, expectedBody string) *httptest.Server {
