@@ -36,7 +36,7 @@ type ValidationResponse struct {
 	TokenType string `json:"token_type"`
 
 	// The amount of time, in seconds, before the access token expires. You can revalidate with the "RefreshToken"
-	ExpiresIn string `json:"expires_in"`
+	ExpiresIn int `json:"expires_in"`
 
 	// The refresh token used to regenerate new access tokens. Store this token securely on your server.
 	RefreshToken string `json:"refresh_token"`

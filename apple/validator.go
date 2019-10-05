@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/tideland/gorest/jwt"
@@ -14,13 +15,11 @@ import (
 const (
 	// ValidationURL is the endpoint for verifying tokens
 	ValidationURL string = "https://appleid.apple.com/auth/token"
-	// ContentType is the request content-type for apple store.
-	ContentType string = "application/json; charset=utf-8"
 )
 
 // ValidationClient is an interface to call the validation API
 type ValidationClient interface {
-	Verify(ctx context.Context, token string, resp interface{}) error
+	VerifyNonAppToken(ctx context.Context, token string, resp interface{}) error
 }
 
 // Client implements ValidationClient
@@ -51,31 +50,32 @@ func NewWithURL(url string) *Client {
 	return client
 }
 
-// Verify sends the ValidationRequest and gets validation result
-func (c *Client) Verify(ctx context.Context, reqBody ValidationRequest, result interface{}) error {
+// VerifyNonAppToken sends the ValidationRequest and gets validation result
+func (c *Client) VerifyNonAppToken(ctx context.Context, reqBody ValidationRequest, result interface{}) error {
 	data := url.Values{}
 	data.Set("client_id", reqBody.ClientID)
 	data.Set("client_secret", reqBody.ClientSecret)
 	data.Set("code", reqBody.Code)
-	data.Set("refresh_token", reqBody.RefreshToken)
 	data.Set("redirect_uri", reqBody.RedirectURI)
 	data.Set("grant_type", "authorization_code")
 
-	req, err := http.NewRequest("POST", c.validationURL+"?"+data.Encode(), nil)
+	req, err := http.NewRequest("POST", c.validationURL, strings.NewReader(data.Encode()))
 	if err != nil {
 		return err
 	}
 
-	req.Header.Set("Content-Type", ContentType)
-	req = req.WithContext(ctx)
+	req.Header.Add("content-type", "application/x-www-form-urlencoded")
+	req.Header.Add("accept", "application/json")
+	req.Header.Add("user-agent", "go-signin-with-apple") // apple requires a user agent
 
-	resp, err := c.client.Do(req)
+	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
 
-	return json.NewDecoder(resp.Body).Decode(result)
+	defer res.Body.Close()
+
+	return json.NewDecoder(res.Body).Decode(result)
 }
 
 // GetUniqueID decodes the id_token response and returns the unique subject ID to identify the user
