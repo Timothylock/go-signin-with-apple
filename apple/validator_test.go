@@ -81,20 +81,20 @@ func TestDoRequestSuccess(t *testing.T) {
 	var actual ValidationResponse
 
 	c := NewWithURL(srv.URL)
-	assert.NoError(t, c.doRequest(context.Background(), &actual, url.Values{}))
+	assert.NoError(t, doRequest(c.client, &actual, c.validationURL, url.Values{}))
 	assert.Equal(t, "123", actual.IDToken)
 }
 
 func TestDoRequestBadServer(t *testing.T) {
 	var actual ValidationResponse
 	c := NewWithURL("foo.test")
-	assert.Error(t, c.doRequest(context.Background(), &actual, url.Values{}))
+	assert.Error(t, doRequest(c.client, &actual, c.validationURL, url.Values{}))
 }
 
 func TestDoRequestNewRequestFail(t *testing.T) {
 	var actual ValidationResponse
 	c := NewWithURL("http://fo  o.test")
-	assert.Error(t, c.doRequest(context.Background(), &actual, nil))
+	assert.Error(t, doRequest(c.client, &actual, c.validationURL, nil))
 }
 
 func TestVerifyNonAppToken(t *testing.T) {

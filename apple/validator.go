@@ -66,7 +66,7 @@ func (c *Client) VerifyWebToken(ctx context.Context, reqBody WebValidationTokenR
 	data.Set("redirect_uri", reqBody.RedirectURI)
 	data.Set("grant_type", "authorization_code")
 
-	return c.doRequest(ctx, &result, data)
+	return doRequest(c.client, &result, c.validationURL, data)
 }
 
 // VerifyRefreshToken sends the WebValidationTokenRequest and gets validation result
@@ -77,7 +77,7 @@ func (c *Client) VerifyRefreshToken(ctx context.Context, reqBody ValidationRefre
 	data.Set("refresh_token", reqBody.RefreshToken)
 	data.Set("grant_type", "refresh_token")
 
-	return c.doRequest(ctx, &result, data)
+	return doRequest(c.client, &result, c.validationURL, data)
 }
 
 // GetUniqueID decodes the id_token response and returns the unique subject ID to identify the user
@@ -90,8 +90,8 @@ func GetUniqueID(idToken string) (string, error) {
 	return fmt.Sprintf("%v", j.Claims()["sub"]), nil
 }
 
-func (c *Client) doRequest(ctx context.Context, result interface{}, data url.Values) error {
-	req, err := http.NewRequest("POST", c.validationURL, strings.NewReader(data.Encode()))
+func doRequest(client *http.Client, result interface{}, url string, data url.Values) error {
+	req, err := http.NewRequest("POST", url, strings.NewReader(data.Encode()))
 	if err != nil {
 		return err
 	}
@@ -100,7 +100,7 @@ func (c *Client) doRequest(ctx context.Context, result interface{}, data url.Val
 	req.Header.Add("accept", AcceptHeader)
 	req.Header.Add("user-agent", UserAgent) // apple requires a user agent
 
-	res, err := http.DefaultClient.Do(req)
+	res, err := client.Do(req)
 	if err != nil {
 		return err
 	}
