@@ -69,6 +69,17 @@ func (c *Client) VerifyWebToken(ctx context.Context, reqBody WebValidationTokenR
 	return doRequest(c.client, &result, c.validationURL, data)
 }
 
+// VerifyAppToken sends the AppValidationTokenRequest and gets validation result
+func (c *Client) VerifyAppToken(ctx context.Context, reqBody AppValidationTokenRequest, result interface{}) error {
+	data := url.Values{}
+	data.Set("client_id", reqBody.ClientID)
+	data.Set("client_secret", reqBody.ClientSecret)
+	data.Set("code", reqBody.Code)
+	data.Set("grant_type", "authorization_code")
+
+	return doRequest(c.client, &result, c.validationURL, data)
+}
+
 // VerifyRefreshToken sends the WebValidationTokenRequest and gets validation result
 func (c *Client) VerifyRefreshToken(ctx context.Context, reqBody ValidationRefreshRequest, result interface{}) error {
 	data := url.Values{}
