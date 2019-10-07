@@ -26,6 +26,7 @@ const (
 // ValidationClient is an interface to call the validation API
 type ValidationClient interface {
 	VerifyWebToken(ctx context.Context, reqBody WebValidationTokenRequest, result interface{}) error
+	VerifyAppToken(ctx context.Context, reqBody AppValidationTokenRequest, result interface{}) error
 	VerifyRefreshToken(ctx context.Context, reqBody ValidationRefreshRequest, result interface{}) error
 }
 
