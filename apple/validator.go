@@ -26,6 +26,7 @@ const (
 // ValidationClient is an interface to call the validation API
 type ValidationClient interface {
 	VerifyWebToken(ctx context.Context, reqBody WebValidationTokenRequest, result interface{}) error
+	VerifyAppToken(ctx context.Context, reqBody AppValidationTokenRequest, result interface{}) error
 	VerifyRefreshToken(ctx context.Context, reqBody ValidationRefreshRequest, result interface{}) error
 }
 
@@ -64,6 +65,17 @@ func (c *Client) VerifyWebToken(ctx context.Context, reqBody WebValidationTokenR
 	data.Set("client_secret", reqBody.ClientSecret)
 	data.Set("code", reqBody.Code)
 	data.Set("redirect_uri", reqBody.RedirectURI)
+	data.Set("grant_type", "authorization_code")
+
+	return doRequest(c.client, &result, c.validationURL, data)
+}
+
+// VerifyAppToken sends the AppValidationTokenRequest and gets validation result
+func (c *Client) VerifyAppToken(ctx context.Context, reqBody AppValidationTokenRequest, result interface{}) error {
+	data := url.Values{}
+	data.Set("client_id", reqBody.ClientID)
+	data.Set("client_secret", reqBody.ClientSecret)
+	data.Set("code", reqBody.Code)
 	data.Set("grant_type", "authorization_code")
 
 	return doRequest(c.client, &result, c.validationURL, data)

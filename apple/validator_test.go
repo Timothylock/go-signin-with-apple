@@ -97,6 +97,19 @@ func TestDoRequestNewRequestFail(t *testing.T) {
 	assert.Error(t, doRequest(c.client, &actual, c.validationURL, nil))
 }
 
+func TestVerifyAppToken(t *testing.T) {
+	req := AppValidationTokenRequest{
+		ClientID:     "123",
+		ClientSecret: "foo",
+		Code:         "bar",
+	}
+	var resp ValidationResponse
+
+	srv := setupServerCompareURL(t, "client_id=123&client_secret=foo&code=bar&grant_type=authorization_code")
+	c := NewWithURL(srv.URL)
+	c.VerifyAppToken(context.Background(), req, resp) // We aren't testing whether this will error
+}
+
 func TestVerifyNonAppToken(t *testing.T) {
 	req := WebValidationTokenRequest{
 		ClientID:     "123",

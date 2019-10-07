@@ -6,8 +6,6 @@ go-signin-with-apple
 
 go-signin-with-apple verifies the `sign-in with apple` token.
 
-## TODO
-- Validate App Tokens (currently this only validates web tokens)
 
 ## Installation
 ```
