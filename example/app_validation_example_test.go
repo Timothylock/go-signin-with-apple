@@ -12,7 +12,7 @@ import (
 This example shows you how to validate an iOS app token for the first time
 */
 
-func TestValidatingTokenAndObtainingID(t *testing.T) {
+func TestValidatingAppTokenAndObtainingID(t *testing.T) {
 	// Your 10-character Team ID
 	teamID := "XXXXXXXXXX"
 
