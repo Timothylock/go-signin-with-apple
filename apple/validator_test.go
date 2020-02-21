@@ -62,6 +62,40 @@ func TestGetUniqueID(t *testing.T) {
 	}
 }
 
+func TestGetClaims(t *testing.T) {
+	tests := []struct {
+		name      string
+		idToken   string
+		wantEmail string
+		wantErr   bool
+	}{
+		{
+			name:      "successful decode",
+			idToken:   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL2FwcGxlaWQuYXBwbGUuY29tIiwiYXVkIjoiY29tLmV4YW1wbGUuYXBwIiwiZXhwIjoxNTY4Mzk1Njc4LCJpYXQiOjE1NjgzOTUwNzgsInN1YiI6IjA4MjY0OS45MzM5MWQ4ZTExOTJmNTZiOGMxY2gzOWdzMmE0N2UyLjk3MzIiLCJhdF9oYXNoIjoickU3b3Brb1BSeVBseV9Pc2Rhc2RFQ1ZnIiwiZW1haWwiOiJmb29AYmFyLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjoidHJ1ZSIsImlzX3ByaXZhdGVfZW1haWwiOiJ0cnVlIiwiYXV0aF90aW1lIjoxNTY4Mzk1MDc2fQ.yPyUS_5k8RMvfowGylHqiCJqYwe-AOGtpBnjvqP4Na8",
+			wantEmail: "foo@bar.com",
+			wantErr:   false,
+		},
+		{
+			name:      "bad token",
+			idToken:   "badtoken",
+			wantEmail: "",
+			wantErr:   true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := GetClaims(tt.idToken)
+			if !tt.wantErr {
+				assert.NoError(t, err, "expected no error but received %s", err)
+			}
+
+			if tt.wantEmail != "" {
+				assert.Equal(t, tt.wantEmail, (*got)["email"])
+			}
+		})
+	}
+}
+
 func TestDoRequestSuccess(t *testing.T) {
 	s, err := json.Marshal(ValidationResponse{
 		IDToken: "123",
