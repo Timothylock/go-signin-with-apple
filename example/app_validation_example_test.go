@@ -57,12 +57,27 @@ YOUR_SECRET_PRIVATE_KEY
 		return
 	}
 
+	// Get the unique user ID
 	unique, err := apple.GetUniqueID(resp.IDToken)
 	if err != nil {
 		fmt.Println("failed to get unique ID: " + err.Error())
 		return
 	}
 
+	// Get the email
+	claim, err := apple.GetClaims(resp.IDToken)
+	if err != nil {
+		fmt.Println("failed to get claims: " + err.Error())
+		return
+	}
+
+	email := (*claim)["email"]
+	emailVerified := (*claim)["email_verified"]
+	isPrivateEmail := (*claim)["is_private_email"]
+
 	// Voila!
 	fmt.Println(unique)
+	fmt.Println(email)
+	fmt.Println(emailVerified)
+	fmt.Println(isPrivateEmail)
 }

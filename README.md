@@ -104,10 +104,7 @@ client.VerifyAppToken(context.Background(), vReq, &resp)
 ```
 
 ### Obtaining Unique Subject ID
-Apple as of right now unfortunately does not return an email or name that you can use. If youw ant to use those, the 
-clients have access to those.
-
-A subject ID is however included in the `id_token` field of the response which when decoded, has a subject that can 
+A subject ID is included in the `id_token` field of the response which when decoded, has a subject that can 
 uniquely identify the user. A helper function is included to obtain this subject ID: `GetUniqueID`
 
 ```
@@ -121,6 +118,29 @@ reflect.TypeOf(response.IdToken) // String
 
 id := apple.GetUniqueID(response.IdToken)
 fmt.Println(id)
+```
+
+### Obtaining Email
+Apple recently added support for the including information about the user in their response. As of right now, you have 
+access to the following: 
+- email
+- email_verified - whether or not the user has validated their email with Apple
+- private_email - whether or not the email is a private relay email from Apple
+
+```$xslt
+import "github.com/Timothylock/go-signin-with-apple/apple"
+
+... Code to validate token ...
+
+reflect.TypeOf(response)         // ValidationResponse
+reflect.TypeOf(response.IdToken) // String
+
+
+claim, _ := apple.GetClaims(resp.IDToken)
+
+email := (*claim)["email"]
+emailVerified := (*claim)["email_verified"]
+isPrivateEmail := (*claim)["is_private_email"]
 ```
 
 ## Contributing

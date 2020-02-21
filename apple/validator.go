@@ -102,6 +102,17 @@ func GetUniqueID(idToken string) (string, error) {
 	return fmt.Sprintf("%v", j.Claims()["sub"]), nil
 }
 
+// GetClaims decodes the id_token response and returns the JWT claims to identify the user
+func GetClaims(idToken string) (*jwt.Claims, error) {
+	j, err := jwt.Decode(idToken)
+	if err != nil {
+		return nil, err
+	}
+
+	claim := j.Claims()
+	return &claim, nil
+}
+
 func doRequest(client *http.Client, result interface{}, url string, data url.Values) error {
 	req, err := http.NewRequest("POST", url, strings.NewReader(data.Encode()))
 	if err != nil {
