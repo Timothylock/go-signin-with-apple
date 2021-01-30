@@ -67,7 +67,7 @@ func (c *Client) VerifyWebToken(ctx context.Context, reqBody WebValidationTokenR
 	data.Set("redirect_uri", reqBody.RedirectURI)
 	data.Set("grant_type", "authorization_code")
 
-	return doRequest(c.client, &result, c.validationURL, data)
+	return doRequest(ctx, c.client, &result, c.validationURL, data)
 }
 
 // VerifyAppToken sends the AppValidationTokenRequest and gets validation result
@@ -78,7 +78,7 @@ func (c *Client) VerifyAppToken(ctx context.Context, reqBody AppValidationTokenR
 	data.Set("code", reqBody.Code)
 	data.Set("grant_type", "authorization_code")
 
-	return doRequest(c.client, &result, c.validationURL, data)
+	return doRequest(ctx, c.client, &result, c.validationURL, data)
 }
 
 // VerifyRefreshToken sends the WebValidationTokenRequest and gets validation result
@@ -89,7 +89,7 @@ func (c *Client) VerifyRefreshToken(ctx context.Context, reqBody ValidationRefre
 	data.Set("refresh_token", reqBody.RefreshToken)
 	data.Set("grant_type", "refresh_token")
 
-	return doRequest(c.client, &result, c.validationURL, data)
+	return doRequest(ctx, c.client, &result, c.validationURL, data)
 }
 
 // GetUniqueID decodes the id_token response and returns the unique subject ID to identify the user
@@ -113,8 +113,8 @@ func GetClaims(idToken string) (*jwt.Claims, error) {
 	return &claim, nil
 }
 
-func doRequest(client *http.Client, result interface{}, url string, data url.Values) error {
-	req, err := http.NewRequest("POST", url, strings.NewReader(data.Encode()))
+func doRequest(ctx context.Context, client *http.Client, result interface{}, url string, data url.Values) error {
+	req, err := http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(data.Encode()))
 	if err != nil {
 		return err
 	}
