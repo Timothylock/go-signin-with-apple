@@ -54,7 +54,7 @@ YOUR_SECRET_PRIVATE_KEY
 	}
 
 	if resp.Error != "" {
-		fmt.Println("apple returned an error: " + resp.Error)
+		fmt.Printf("apple returned an error: %s - %s\n", resp.Error, resp.ErrorDescription)
 		return
 	}
 
