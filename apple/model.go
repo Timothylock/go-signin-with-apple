@@ -65,6 +65,9 @@ type ValidationResponse struct {
 
 	// Used to capture any error returned by the endpoint. Do not trust the response if this error is not nil
 	Error string `json:"error"`
+	
+	// A more detailed precision about the current error.
+	ErrorDescription string `json:"error_description"`
 }
 
 // RefreshResponse is a subset of ValidationResponse returned by Apple
