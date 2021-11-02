@@ -3,6 +3,7 @@ go:
   - 1.17
 before_install:
   - sudo pip install codecov
+  - sudo apt-get update && sudo apt-get install --reinstall ca-certificates
 install:
   - make setup
 script:
