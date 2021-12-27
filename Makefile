@@ -7,6 +7,7 @@ setup:
 		go get github.com/stretchr/testify/assert
 		go get github.com/tideland/gorest/jwt
 		go get github.com/dgrijalva/jwt-go
+		go get github.com/golang-jwt/jwt/v4
 		go get ./...
 
 test:
