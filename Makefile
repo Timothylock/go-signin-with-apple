@@ -1,4 +1,4 @@
-.PHONEY: all setup test cover
+.PHONY: all setup test cover
 
 all: setup cover
 
