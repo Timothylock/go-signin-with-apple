@@ -4,6 +4,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
+	"io/ioutil"
 	"time"
 
 	"github.com/golang-jwt/jwt"
@@ -27,6 +28,49 @@ func GenerateClientSecret(signingKey, teamID, clientID, keyID string) (string, e
 	privKey, err := x509.ParsePKCS8PrivateKey(block.Bytes)
 	if err != nil {
 		return "", err
+	}
+
+	// Create the Claims
+	now := time.Now()
+	claims := &jwt.StandardClaims{
+		Issuer:    teamID,
+		IssuedAt:  now.Unix(),
+		ExpiresAt: now.Add(time.Hour*24*180 - time.Second).Unix(), // 180 days
+		Audience:  "https://appleid.apple.com",
+		Subject:   clientID,
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodES256, claims)
+	token.Header["alg"] = "ES256"
+	token.Header["kid"] = keyID
+
+	return token.SignedString(privKey)
+}
+
+/*
+GenerateClientSecretP8File generates the client secret used to make requests to the validation server.
+The secret expires after 6 months.
+Get the p8 file by downloading it on Apple.
+
+p8FilePath - Where is the path you save the p8 file, e.g. "./example/.secret_key.p8"
+teamID - Your 10-character Team ID
+clientID - Your Services ID, e.g. com.aaronparecki.services
+keyID - Find the 10-char Key ID value from the portal
+*/
+func GenerateClientSecretP8File(p8FilePath, teamID, clientID, keyID string) (string, error) {
+	p8bytes, err := ioutil.ReadFile(p8FilePath)
+	if err != nil {
+		return err.Error(), err
+	}
+
+	block, _ := pem.Decode(p8bytes)
+	if block == nil {
+		return "", errors.New("empty block after decoding")
+	}
+
+	privKey, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+	if err != nil {
+		return err.Error(), err
 	}
 
 	// Create the Claims
