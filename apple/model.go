@@ -28,8 +28,8 @@ type AppValidationTokenRequest struct {
 	// It can also be generated using the GenerateClientSecret function provided in this package
 	ClientSecret string
 
-	// Code is the authorization code received from your application’s user agent.
-	// The code is single use only and valid for five minutes.
+	// The authorization code received in an authorization response sent to your app. The code is single-use only and valid for five minutes. 
+	// Authorization code validation requests require this parameter.
 	Code string
 }
 
@@ -57,7 +57,8 @@ type ValidationResponse struct {
 	// The amount of time, in seconds, before the access token expires. You can revalidate with the "RefreshToken"
 	ExpiresIn int `json:"expires_in"`
 
-	// The refresh token used to regenerate new access tokens. Store this token securely on your server.
+	// The refresh token used to regenerate new access tokens. Store this token securely on your server. 
+	// The refresh token isn’t returned when validating an existing refresh token. Please refer to RefreshReponse below
 	RefreshToken string `json:"refresh_token"`
 
 	// A JSON Web Token that contains the user’s identity information.

@@ -39,7 +39,7 @@ client := apple.New()
 vReq := apple.AppValidationTokenRequest{
 	ClientID:     clientID,
 	ClientSecret: secret,
-	Code:         "the_token_to_validate",
+	Code:         "the_authorization_code_to_validate",
 }
 
 var resp apple.ValidationResponse
@@ -73,7 +73,7 @@ client_id := "come.change.me"
 // Find the 10-char Key ID value from the portal
 key_id := "XXXXXXXXXX"
 
-secret := `Your key that starts in -----BEGIN PRIVATE KEY-----`
+secret := `Your key that starts with -----BEGIN PRIVATE KEY-----`
 
 secret, _ := apples.GenerateClientSecret(secret, team_id, client_id, key_id)
 fmt.Println(secret)
@@ -93,7 +93,7 @@ client := apple.New()
 vReq := apple.AppValidationTokenRequest{
 	ClientID:     clientID,
 	ClientSecret: secret,
-	Code:         "the_token_to_validate",
+	Code:         "the_authorization_code_to_validate",
 }
 
 var resp apple.ValidationResponse
@@ -141,6 +141,24 @@ claim, _ := apple.GetClaims(resp.IDToken)
 email := (*claim)["email"]
 emailVerified := (*claim)["email_verified"]
 isPrivateEmail := (*claim)["is_private_email"]
+```
+
+### Obtaining Real User Status
+Apple determines whether a user is a real person by combining multiple metrics on iOS 14 devices and above. This value is 
+assessible by reading `real_user_status` from the claims. More documentation [here](https://developer.apple.com/documentation/authenticationservices/asuserdetectionstatus)
+
+```$xslt
+import "github.com/Timothylock/go-signin-with-apple/apple"
+
+... Code to validate token ...
+
+reflect.TypeOf(response)         // ValidationResponse
+reflect.TypeOf(response.IdToken) // String
+
+
+claim, _ := apple.GetClaims(resp.IDToken)
+
+realUserStatus := (*claim)["real_user_status"]
 ```
 
 ## Contributing
