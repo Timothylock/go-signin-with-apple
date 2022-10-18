@@ -40,7 +40,7 @@ YOUR_SECRET_PRIVATE_KEY
 	vReq := apple.AppValidationTokenRequest{
 		ClientID:     clientID,
 		ClientSecret: secret,
-		Code:         "the_token_to_validate",
+		Code:         "the_authorization_code_to_validate",
 	}
 
 	var resp apple.ValidationResponse

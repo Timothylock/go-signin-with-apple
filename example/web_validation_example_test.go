@@ -40,7 +40,7 @@ YOUR_SECRET_PRIVATE_KEY
 	vReq := apple.WebValidationTokenRequest{
 		ClientID:     clientID,
 		ClientSecret: secret,
-		Code:         "the_token_to_validate",
+		Code:         "the_authorization_code_to_validate",
 		RedirectURI:  "https://example.com", // This URL must be validated with apple in your service
 	}
 
