@@ -3,7 +3,7 @@
 all: setup cover
 
 setup:
-		go get
+		go mod download
 
 test:
 		go test -v ./...
