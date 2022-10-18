@@ -3,7 +3,7 @@ module github.com/Timothylock/go-signin-with-apple
 go 1.18
 
 require (
-	github.com/golang-jwt/jwt v3.2.2+incompatible
+	github.com/golang-jwt/jwt/v4 v4.4.2
 	github.com/stretchr/testify v1.8.0
 	github.com/tideland/gorest v2.15.5+incompatible
 )
