@@ -6,6 +6,7 @@ before_install:
 install:
   - make setup
 script:
+  - make test
   - make cover
 after_success:
   - codecov

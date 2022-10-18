@@ -1,6 +1,6 @@
 .PHONY: all setup test cover
 
-all: setup cover
+all: setup test cover
 
 setup:
 		go mod download
