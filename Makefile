@@ -1,13 +1,9 @@
 .PHONY: all setup test cover
 
-all: setup cover
+all: setup test cover
 
 setup:
-		go get golang.org/x/tools/cmd/cover
-		go get github.com/stretchr/testify/assert
-		go get github.com/tideland/gorest/jwt
-		go get github.com/dgrijalva/jwt-go
-		go get ./...
+		go mod download
 
 test:
 		go test -v ./...
