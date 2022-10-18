@@ -1,6 +1,6 @@
 module github.com/Timothylock/go-signin-with-apple
 
-go 1.19
+go 1.18
 
 require (
 	github.com/golang-jwt/jwt v3.2.2+incompatible
