@@ -40,7 +40,7 @@ YOUR_SECRET_PRIVATE_KEY
 	vReq := apple.ValidationRefreshRequest{
 		ClientID:     clientID,
 		ClientSecret: secret,
-		RefreshToken: "the_token_to_validate",
+		RefreshToken: "the_refresh_code_to_validate",
 	}
 
 	var resp apple.RefreshResponse
