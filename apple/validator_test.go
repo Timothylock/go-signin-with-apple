@@ -16,15 +16,17 @@ func TestNew(t *testing.T) {
 	c := New()
 
 	assert.IsType(t, &Client{}, c, "expected New to return a Client type")
-	assert.Equal(t, ValidationURL, c.validationURL, "expected the client's url to be %s, but got %s", ValidationURL, c.validationURL)
+	assert.Equal(t, ValidationURL, c.validationURL, "expected the client's validation url to be %s, but got %s", ValidationURL, c.validationURL)
+	assert.Equal(t, RevokeURL, c.revokeURL, "expected the client's revoke url to be %s, but got %s", RevokeURL, c.revokeURL)
 	assert.NotNil(t, c.client, "the client's http client should not be empty")
 }
 
 func TestNewWithURL(t *testing.T) {
-	c := NewWithURL("someURL")
+	c := NewWithURL("validationURL", "revokeURL")
 
 	assert.IsType(t, &Client{}, c, "expected New to return a Client type")
-	assert.Equal(t, "someURL", c.validationURL, "expected the client's url to be %s, but got %s", "someURL", c.validationURL)
+	assert.Equal(t, "validationURL", c.validationURL, "expected the client's validation url to be %s, but got %s", "validationURL", c.validationURL)
+	assert.Equal(t, "revokeURL", c.revokeURL, "expected the client's revoke url to be %s, but got %s", "revokeURL", c.revokeURL)
 	assert.NotNil(t, c.client, "the client's http client should not be empty")
 }
 
@@ -114,20 +116,20 @@ func TestDoRequestSuccess(t *testing.T) {
 
 	var actual ValidationResponse
 
-	c := NewWithURL(srv.URL)
+	c := NewWithURL(srv.URL, "revokeUrl")
 	assert.NoError(t, doRequest(context.Background(), c.client, &actual, c.validationURL, url.Values{}))
 	assert.Equal(t, "123", actual.IDToken)
 }
 
 func TestDoRequestBadServer(t *testing.T) {
 	var actual ValidationResponse
-	c := NewWithURL("foo.test")
+	c := NewWithURL("foo.test", "revokeUrl")
 	assert.Error(t, doRequest(context.Background(), c.client, &actual, c.validationURL, url.Values{}))
 }
 
 func TestDoRequestNewRequestFail(t *testing.T) {
 	var actual ValidationResponse
-	c := NewWithURL("http://fo  o.test")
+	c := NewWithURL("http://fo  o.test", "revokeUrl")
 	assert.Error(t, doRequest(context.Background(), c.client, &actual, c.validationURL, nil))
 }
 
@@ -140,7 +142,7 @@ func TestVerifyAppToken(t *testing.T) {
 	var resp ValidationResponse
 
 	srv := setupServerCompareURL(t, "client_id=123&client_secret=foo&code=bar&grant_type=authorization_code")
-	c := NewWithURL(srv.URL)
+	c := NewWithURL(srv.URL, "revokeUrl")
 	c.VerifyAppToken(context.Background(), req, resp) // We aren't testing whether this will error
 }
 
@@ -154,7 +156,7 @@ func TestVerifyNonAppToken(t *testing.T) {
 	var resp ValidationResponse
 
 	srv := setupServerCompareURL(t, "client_id=123&client_secret=foo&code=bar&grant_type=authorization_code&redirect_uri=http%3A%2F%2Ffoo.test")
-	c := NewWithURL(srv.URL)
+	c := NewWithURL(srv.URL, "revokeUrl")
 	c.VerifyWebToken(context.Background(), req, resp) // We aren't testing whether this will error
 }
 
@@ -167,8 +169,33 @@ func TestVerifyRefreshToken(t *testing.T) {
 	var resp ValidationResponse
 
 	srv := setupServerCompareURL(t, "client_id=123&client_secret=foo&grant_type=refresh_token&refresh_token=bar")
-	c := NewWithURL(srv.URL)
+	c := NewWithURL(srv.URL, "revokeUrl")
 	c.VerifyRefreshToken(context.Background(), req, resp) // We aren't testing whether this will error
+}
+
+func TestRevokeRefreshToken(t *testing.T) {
+	req := RevokeRefreshTokenRequest{
+		ClientID:     "123",
+		ClientSecret: "foo",
+		RefreshToken: "bar",
+	}
+	var resp ValidationResponse
+
+	srv := setupServerCompareURL(t, "client_id=123&client_secret=foo&token=bar&token_type_hint=refresh_token")
+	c := NewWithURL("verifyUrl", srv.URL)
+	c.RevokeRefreshToken(context.Background(), req, resp) // We aren't testing whether this will error
+}
+func TestRevokeAccessToken(t *testing.T) {
+	req := RevokeAccessTokenRequest{
+		ClientID:     "123",
+		ClientSecret: "foo",
+		AccessToken:  "bar",
+	}
+	var resp ValidationResponse
+
+	srv := setupServerCompareURL(t, "client_id=123&client_secret=foo&token=bar&token_type_hint=access_token")
+	c := NewWithURL("verifyUrl", srv.URL)
+	c.RevokeAccessToken(context.Background(), req, resp) // We aren't testing whether this will error
 }
 
 // setupServerCompareURL sets up an httptest server to compare the given URLs. You must close the server
