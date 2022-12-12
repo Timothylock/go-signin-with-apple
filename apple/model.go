@@ -117,7 +117,7 @@ type RefreshResponse struct {
 
 // RevokeResponse is based of https://developer.apple.com/documentation/sign_in_with_apple/revoke_tokens
 type RevokeResponse struct {
-	// Used to capture any error returned by the endpoint. Do not trust the response if this error is not nil
+	// Used to capture any error returned by the endpoint
 	Error string `json:"error"`
 
 	// A more detailed precision about the current error.
