@@ -67,56 +67,61 @@ func NewWithURL(validationURL string, revokeURL string) *Client {
 
 // VerifyWebToken sends the WebValidationTokenRequest and gets validation result
 func (c *Client) VerifyWebToken(ctx context.Context, reqBody WebValidationTokenRequest, result interface{}) error {
-	data := url.Values{}
-	data.Set("client_id", reqBody.ClientID)
-	data.Set("client_secret", reqBody.ClientSecret)
-	data.Set("code", reqBody.Code)
-	data.Set("redirect_uri", reqBody.RedirectURI)
-	data.Set("grant_type", "authorization_code")
+	data := url.Values{
+		"client_id":     {reqBody.ClientID},
+		"client_secret": {reqBody.ClientSecret},
+		"code":          {reqBody.Code},
+		"redirect_uri":  {reqBody.RedirectURI},
+		"grant_type":    {"authorization_code"},
+	}
 
 	return doRequest(ctx, c.client, &result, c.validationURL, data)
 }
 
 // VerifyAppToken sends the AppValidationTokenRequest and gets validation result
 func (c *Client) VerifyAppToken(ctx context.Context, reqBody AppValidationTokenRequest, result interface{}) error {
-	data := url.Values{}
-	data.Set("client_id", reqBody.ClientID)
-	data.Set("client_secret", reqBody.ClientSecret)
-	data.Set("code", reqBody.Code)
-	data.Set("grant_type", "authorization_code")
+	data := url.Values{
+		"client_id":     {reqBody.ClientID},
+		"client_secret": {reqBody.ClientSecret},
+		"code":          {reqBody.Code},
+		"grant_type":    {"authorization_code"},
+	}
 
 	return doRequest(ctx, c.client, &result, c.validationURL, data)
 }
 
 // VerifyRefreshToken sends the WebValidationTokenRequest and gets validation result
 func (c *Client) VerifyRefreshToken(ctx context.Context, reqBody ValidationRefreshRequest, result interface{}) error {
-	data := url.Values{}
-	data.Set("client_id", reqBody.ClientID)
-	data.Set("client_secret", reqBody.ClientSecret)
-	data.Set("refresh_token", reqBody.RefreshToken)
-	data.Set("grant_type", "refresh_token")
+	data := url.Values{
+		"client_id":     {reqBody.ClientID},
+		"client_secret": {reqBody.ClientSecret},
+		"refresh_token": {reqBody.RefreshToken},
+		"grant_type":    {"refresh_token"},
+	}
 
 	return doRequest(ctx, c.client, &result, c.validationURL, data)
 }
 
 // RevokeRefreshToken revokes the Refresh Token and gets the revoke result
 func (c *Client) RevokeRefreshToken(ctx context.Context, reqBody RevokeRefreshTokenRequest, result interface{}) error {
-	data := url.Values{}
-	data.Set("client_id", reqBody.ClientID)
-	data.Set("client_secret", reqBody.ClientSecret)
-	data.Set("token", reqBody.RefreshToken)
-	data.Set("token_type_hint", "refresh_token")
+	data := url.Values{
+		"client_id":       {reqBody.ClientID},
+		"client_secret":   {reqBody.ClientSecret},
+		"token":           {reqBody.RefreshToken},
+		"token_type_hint": {"refresh_token"},
+	}
 
 	return doRequest(ctx, c.client, &result, c.revokeURL, data)
 }
 
 // RevokeAccessToken revokes the Access Token and gets the revoke result
 func (c *Client) RevokeAccessToken(ctx context.Context, reqBody RevokeAccessTokenRequest, result interface{}) error {
-	data := url.Values{}
-	data.Set("client_id", reqBody.ClientID)
-	data.Set("client_secret", reqBody.ClientSecret)
-	data.Set("token", reqBody.AccessToken)
-	data.Set("token_type_hint", "access_token")
+	data := url.Values{
+		"client_id":       {reqBody.ClientID},
+		"client_secret":   {reqBody.ClientSecret},
+		"token":           {reqBody.AccessToken},
+		"token_type_hint": {"access_token"},
+	}
 
 	return doRequest(ctx, c.client, &result, c.revokeURL, data)
 }
