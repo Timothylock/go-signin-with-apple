@@ -157,6 +157,8 @@ func doRequest(ctx context.Context, client *http.Client, result interface{}, url
 	req.Header.Add("accept", AcceptHeader)
 	req.Header.Add("user-agent", UserAgent) // apple requires a user agent
 
+	req.Close = true
+
 	res, err := client.Do(req)
 	if err != nil {
 		return err
