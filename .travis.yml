@@ -2,11 +2,12 @@ language: go
 go:
   - "1.22.0"
 before_install:
-  - sudo pip install codecov
+  - curl -Os https://cli.codecov.io/latest/linux/codecov
+  - chmod +x codecov
 install:
   - make setup
 script:
   - make test
   - make cover
 after_success:
-  - codecov
+  - ./codecov
