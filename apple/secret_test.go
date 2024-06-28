@@ -3,8 +3,7 @@ package apple
 import (
 	"testing"
 
-	"github.com/tideland/gorest/jwt"
-
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -66,18 +65,14 @@ HAqVePERhISfN6cwZt5p8B3/JUwSR8el66DF7Jm57BM=
 			if tt.wantSecret {
 				assert.NotEmpty(t, got, "wanted a secret string returned but got none")
 
-				decoded, err := jwt.Decode(got)
+				token, _, err := new(jwt.Parser).ParseUnverified(got, jwt.MapClaims{})
 				assert.NoError(t, err, "error while decoding the secret")
 
-				r, b := decoded.Claims().Issuer()
-				assert.True(t, b, "invalid issuer")
-				assert.Equal(t, "1234567890", r)
-
-				r, b = decoded.Claims().Subject()
-				assert.True(t, b, "invalid subject")
-				assert.Equal(t, "com.example.app", r)
-
-				assert.Equal(t, jwt.ES256, decoded.Algorithm())
+				claims, ok := token.Claims.(jwt.MapClaims)
+				assert.True(t, ok, "invalid claims")
+				assert.Equal(t, "1234567890", claims["iss"])
+				assert.Equal(t, "com.example.app", claims["sub"])
+				assert.Equal(t, "ES256", token.Header["alg"])
 			}
 		})
 	}

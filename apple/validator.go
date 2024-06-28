@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tideland/gorest/jwt"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 const (
@@ -128,23 +128,32 @@ func (c *Client) RevokeAccessToken(ctx context.Context, reqBody RevokeAccessToke
 
 // GetUniqueID decodes the id_token response and returns the unique subject ID to identify the user
 func GetUniqueID(idToken string) (string, error) {
-	j, err := jwt.Decode(idToken)
+	token, _, err := new(jwt.Parser).ParseUnverified(idToken, jwt.MapClaims{})
 	if err != nil {
 		return "", err
 	}
 
-	return fmt.Sprintf("%v", j.Claims()["sub"]), nil
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return "", fmt.Errorf("invalid token claims")
+	}
+
+	return fmt.Sprintf("%v", claims["sub"]), nil
 }
 
 // GetClaims decodes the id_token response and returns the JWT claims to identify the user
-func GetClaims(idToken string) (*jwt.Claims, error) {
-	j, err := jwt.Decode(idToken)
+func GetClaims(idToken string) (*jwt.MapClaims, error) {
+	token, _, err := new(jwt.Parser).ParseUnverified(idToken, jwt.MapClaims{})
 	if err != nil {
 		return nil, err
 	}
 
-	claim := j.Claims()
-	return &claim, nil
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return nil, fmt.Errorf("invalid token claims")
+	}
+
+	return &claims, nil
 }
 
 func doRequest(ctx context.Context, client *http.Client, result interface{}, url string, data url.Values) error {
