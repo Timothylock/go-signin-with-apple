@@ -42,7 +42,15 @@ type Client struct {
 }
 
 // New creates a Client object
-func New() *Client {
+func New(httpClient *http.Client) *Client {
+	if httpClient == nil {
+		httpClient = http.DefaultClient
+	}
+
+	if httpClient.Timeout < 5*time.Second {
+		httpClient.Timeout = 5 * time.Second
+	}
+
 	client := &Client{
 		validationURL: ValidationURL,
 		revokeURL:     RevokeURL,

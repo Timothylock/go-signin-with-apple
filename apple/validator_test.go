@@ -13,7 +13,7 @@ import (
 )
 
 func TestNew(t *testing.T) {
-	c := New()
+	c := New(http.DefaultClient)
 
 	assert.IsType(t, &Client{}, c, "expected New to return a Client type")
 	assert.Equal(t, ValidationURL, c.validationURL, "expected the client's validation url to be %s, but got %s", ValidationURL, c.validationURL)
