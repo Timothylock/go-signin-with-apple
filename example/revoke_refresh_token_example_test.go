@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/Timothylock/go-signin-with-apple/apple"
+	"github.com/steptospace/go-signin-with-apple/apple/apple"
 )
 
 /*
