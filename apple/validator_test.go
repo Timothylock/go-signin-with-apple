@@ -13,7 +13,7 @@ import (
 )
 
 func TestNew(t *testing.T) {
-	c := New(http.DefaultClient)
+	c := New()
 
 	assert.IsType(t, &Client{}, c, "expected New to return a Client type")
 	assert.Equal(t, ValidationURL, c.validationURL, "expected the client's validation url to be %s, but got %s", ValidationURL, c.validationURL)
@@ -27,6 +27,15 @@ func TestNewWithURL(t *testing.T) {
 	assert.IsType(t, &Client{}, c, "expected New to return a Client type")
 	assert.Equal(t, "validationURL", c.validationURL, "expected the client's validation url to be %s, but got %s", "validationURL", c.validationURL)
 	assert.Equal(t, "revokeURL", c.revokeURL, "expected the client's revoke url to be %s, but got %s", "revokeURL", c.revokeURL)
+	assert.NotNil(t, c.client, "the client's http client should not be empty")
+}
+
+func TestNewWithClient(t *testing.T) {
+	c := NewWithClient(http.DefaultClient)
+
+	assert.IsType(t, &Client{}, c, "expected New to return a Client type")
+	assert.Equal(t, ValidationURL, c.validationURL, "expected the client's validation url to be %s, but got %s", ValidationURL, c.validationURL)
+	assert.Equal(t, RevokeURL, c.revokeURL, "expected the client's revoke url to be %s, but got %s", RevokeURL, c.revokeURL)
 	assert.NotNil(t, c.client, "the client's http client should not be empty")
 }
 

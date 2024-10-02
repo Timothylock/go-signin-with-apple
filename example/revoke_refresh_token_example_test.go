@@ -3,7 +3,6 @@ package example
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"testing"
 
 	"github.com/Timothylock/go-signin-with-apple/apple"
@@ -36,7 +35,7 @@ YOUR_SECRET_PRIVATE_KEY
 	}
 
 	// Generate a new validation client
-	client := apple.New(http.DefaultClient)
+	client := apple.New()
 
 	vReq := apple.RevokeRefreshTokenRequest{
 		ClientID:     clientID,
