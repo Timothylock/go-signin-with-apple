@@ -30,6 +30,15 @@ func TestNewWithURL(t *testing.T) {
 	assert.NotNil(t, c.client, "the client's http client should not be empty")
 }
 
+func TestNewWithClient(t *testing.T) {
+	c := NewWithClient(http.DefaultClient)
+
+	assert.IsType(t, &Client{}, c, "expected New to return a Client type")
+	assert.Equal(t, ValidationURL, c.validationURL, "expected the client's validation url to be %s, but got %s", ValidationURL, c.validationURL)
+	assert.Equal(t, RevokeURL, c.revokeURL, "expected the client's revoke url to be %s, but got %s", RevokeURL, c.revokeURL)
+	assert.NotNil(t, c.client, "the client's http client should not be empty")
+}
+
 func TestGetUniqueID(t *testing.T) {
 	tests := []struct {
 		name    string

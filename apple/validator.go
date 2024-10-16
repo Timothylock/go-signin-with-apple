@@ -65,6 +65,24 @@ func NewWithURL(validationURL string, revokeURL string) *Client {
 	return client
 }
 
+// NewWithClient creates a Client object with a custom http client
+func NewWithClient(httpClient *http.Client) *Client {
+	if httpClient == nil {
+		httpClient = http.DefaultClient
+	}
+
+	if httpClient.Timeout < 5*time.Second {
+		httpClient.Timeout = 5 * time.Second
+	}
+
+	client := &Client{
+		validationURL: ValidationURL,
+		revokeURL:     RevokeURL,
+		client:        httpClient,
+	}
+	return client
+}
+
 // VerifyWebToken sends the WebValidationTokenRequest and gets validation result
 func (c *Client) VerifyWebToken(ctx context.Context, reqBody WebValidationTokenRequest, result interface{}) error {
 	data := url.Values{
