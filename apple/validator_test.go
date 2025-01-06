@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -28,6 +29,78 @@ func TestNewWithURL(t *testing.T) {
 	assert.Equal(t, "validationURL", c.validationURL, "expected the client's validation url to be %s, but got %s", "validationURL", c.validationURL)
 	assert.Equal(t, "revokeURL", c.revokeURL, "expected the client's revoke url to be %s, but got %s", "revokeURL", c.revokeURL)
 	assert.NotNil(t, c.client, "the client's http client should not be empty")
+}
+
+func TestNewWithOptions(t *testing.T) {
+	tests := []struct {
+		name                  string
+		opts                  ClientOptions
+		expectedValidationURL string
+		expectedRevokeURL     string
+		expectedClientTimeout time.Duration
+	}{
+		{
+			name:                  "no options should use defaults",
+			opts:                  ClientOptions{},
+			expectedValidationURL: ValidationURL,
+			expectedRevokeURL:     RevokeURL,
+			expectedClientTimeout: 5 * time.Second,
+		},
+		{
+			name: "custom validation url",
+			opts: ClientOptions{
+				validationURL: "customValidationURL",
+			},
+			expectedValidationURL: "customValidationURL",
+			expectedRevokeURL:     RevokeURL,
+			expectedClientTimeout: 5 * time.Second,
+		},
+		{
+			name: "custom revoke url",
+			opts: ClientOptions{
+				revokeURL: "customRevokeURL",
+			},
+			expectedValidationURL: ValidationURL,
+			expectedRevokeURL:     "customRevokeURL",
+			expectedClientTimeout: 5 * time.Second,
+		},
+		{
+			name: "custom client timeout",
+			opts: ClientOptions{
+				client: &http.Client{
+					Timeout: 10 * time.Second,
+				},
+			},
+			expectedValidationURL: ValidationURL,
+			expectedRevokeURL:     RevokeURL,
+			expectedClientTimeout: 10 * time.Second,
+		},
+		{
+			name: "all custom options",
+			opts: ClientOptions{
+				validationURL: "customValidationURL",
+				revokeURL:     "customRevokeURL",
+				client: &http.Client{
+					Timeout: 10 * time.Second,
+				},
+			},
+			expectedValidationURL: "customValidationURL",
+			expectedRevokeURL:     "customRevokeURL",
+			expectedClientTimeout: 10 * time.Second,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := NewWithOptions(tt.opts)
+
+			assert.IsType(t, &Client{}, c, "expected New to return a Client type")
+			assert.Equal(t, tt.expectedValidationURL, c.validationURL, "expected the client's validation url to be %s, but got %s", tt.expectedValidationURL, c.validationURL)
+			assert.Equal(t, tt.expectedRevokeURL, c.revokeURL, "expected the client's revoke url to be %s, but got %s", tt.expectedRevokeURL, c.revokeURL)
+			assert.NotNil(t, c.client, "the client's http client should not be empty")
+			assert.Equal(t, tt.expectedClientTimeout, c.client.Timeout, "expected the client's timeout to be %s, but got %s", tt.expectedClientTimeout, c.client.Timeout)
+		})
+	}
 }
 
 func TestGetUniqueID(t *testing.T) {
