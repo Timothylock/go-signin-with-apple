@@ -43,9 +43,9 @@ type Client struct {
 
 // ClientOptions is a struct to hold the options for the client
 type ClientOptions struct {
-	validationURL string
-	revokeURL     string
-	client        *http.Client
+	ValidationURL string
+	RevokeURL     string
+	Client        *http.Client
 }
 
 // New creates a Client object with the default URLs and a default http client
@@ -58,29 +58,29 @@ func New() *Client {
 // Deprecated: This function is deprecated and will be removed in a future version. Use NewWithOptions instead.
 func NewWithURL(validationURL string, revokeURL string) *Client {
 	return NewWithOptions(ClientOptions{
-		validationURL: validationURL,
-		revokeURL:     revokeURL,
+		ValidationURL: validationURL,
+		RevokeURL:     revokeURL,
 	})
 }
 
 // NewWithOptions creates a Client object with custom options. It will default to the standard options if not provided
 func NewWithOptions(options ClientOptions) *Client {
-	if options.client == nil {
-		options.client = &http.Client{
+	if options.Client == nil {
+		options.Client = &http.Client{
 			Timeout: 5 * time.Second,
 		}
 	}
-	if options.validationURL == "" {
-		options.validationURL = ValidationURL
+	if options.ValidationURL == "" {
+		options.ValidationURL = ValidationURL
 	}
-	if options.revokeURL == "" {
-		options.revokeURL = RevokeURL
+	if options.RevokeURL == "" {
+		options.RevokeURL = RevokeURL
 	}
 
 	client := &Client{
-		validationURL: options.validationURL,
-		revokeURL:     options.revokeURL,
-		client:        options.client,
+		validationURL: options.ValidationURL,
+		revokeURL:     options.RevokeURL,
+		client:        options.Client,
 	}
 	return client
 }
