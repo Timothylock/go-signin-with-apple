@@ -49,7 +49,7 @@ func TestNewWithOptions(t *testing.T) {
 		{
 			name: "custom validation url",
 			opts: ClientOptions{
-				validationURL: "customValidationURL",
+				ValidationURL: "customValidationURL",
 			},
 			expectedValidationURL: "customValidationURL",
 			expectedRevokeURL:     RevokeURL,
@@ -58,7 +58,7 @@ func TestNewWithOptions(t *testing.T) {
 		{
 			name: "custom revoke url",
 			opts: ClientOptions{
-				revokeURL: "customRevokeURL",
+				RevokeURL: "customRevokeURL",
 			},
 			expectedValidationURL: ValidationURL,
 			expectedRevokeURL:     "customRevokeURL",
@@ -67,7 +67,7 @@ func TestNewWithOptions(t *testing.T) {
 		{
 			name: "custom client timeout",
 			opts: ClientOptions{
-				client: &http.Client{
+				Client: &http.Client{
 					Timeout: 10 * time.Second,
 				},
 			},
@@ -78,9 +78,9 @@ func TestNewWithOptions(t *testing.T) {
 		{
 			name: "all custom options",
 			opts: ClientOptions{
-				validationURL: "customValidationURL",
-				revokeURL:     "customRevokeURL",
-				client: &http.Client{
+				ValidationURL: "customValidationURL",
+				RevokeURL:     "customRevokeURL",
+				Client: &http.Client{
 					Timeout: 10 * time.Second,
 				},
 			},
