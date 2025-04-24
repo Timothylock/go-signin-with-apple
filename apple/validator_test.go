@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNew(t *testing.T) {
@@ -98,7 +99,10 @@ func TestNewWithOptions(t *testing.T) {
 			assert.Equal(t, tt.expectedValidationURL, c.validationURL, "expected the client's validation url to be %s, but got %s", tt.expectedValidationURL, c.validationURL)
 			assert.Equal(t, tt.expectedRevokeURL, c.revokeURL, "expected the client's revoke url to be %s, but got %s", tt.expectedRevokeURL, c.revokeURL)
 			assert.NotNil(t, c.client, "the client's http client should not be empty")
-			assert.Equal(t, tt.expectedClientTimeout, c.client.Timeout, "expected the client's timeout to be %s, but got %s", tt.expectedClientTimeout, c.client.Timeout)
+
+			httpClient, ok := c.client.(*http.Client)
+			require.True(t, ok, "the client's http client should be of type *http.Client")
+			assert.Equal(t, tt.expectedClientTimeout, httpClient.Timeout, "expected the client's timeout to be %s, but got %s", tt.expectedClientTimeout, httpClient.Timeout)
 		})
 	}
 }

@@ -34,18 +34,24 @@ type ValidationClient interface {
 	RevokeRefreshToken(ctx context.Context, reqBody RevokeRefreshTokenRequest, result interface{}) error
 }
 
+// HTTPClient is an interface for an HTTP client to have a support
+// of an http.Client wrappers or replacements (e.g., some custom mocks).
+type HTTPClient interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
 // Client implements ValidationClient
 type Client struct {
 	validationURL string
 	revokeURL     string
-	client        *http.Client
+	client        HTTPClient
 }
 
 // ClientOptions is a struct to hold the options for the client
 type ClientOptions struct {
 	ValidationURL string
 	RevokeURL     string
-	Client        *http.Client
+	Client        HTTPClient
 }
 
 // New creates a Client object with the default URLs and a default http client
@@ -176,7 +182,7 @@ func GetClaims(idToken string) (*jwt.MapClaims, error) {
 	return &claims, nil
 }
 
-func doRequest(ctx context.Context, client *http.Client, result interface{}, url string, data url.Values) error {
+func doRequest(ctx context.Context, client HTTPClient, result interface{}, url string, data url.Values) error {
 	req, err := http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(data.Encode()))
 	if err != nil {
 		return err
