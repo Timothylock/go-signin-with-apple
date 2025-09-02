@@ -546,7 +546,7 @@ func TestVerifyRefreshToken(t *testing.T) {
 			},
 			serverResponse: "<html>Internal Server Error</html>",
 			serverStatus:   500,
-			expectedError:  true, // JSON decode error
+			expectedError:  true, // JSON decode error from HTML response
 		},
 	}
 
@@ -595,11 +595,12 @@ func TestVerifyRefreshToken(t *testing.T) {
 
 func TestRevokeRefreshToken(t *testing.T) {
 	tests := []struct {
-		name          string
-		req           RevokeRefreshTokenRequest
-		serverStatus  int
-		expectedError bool
-		errorContains string
+		name           string
+		req            RevokeRefreshTokenRequest
+		serverResponse string
+		serverStatus   int
+		expectedError  bool
+		expectedResp   ValidationResponse
 	}{
 		{
 			name: "successful revocation",
@@ -608,8 +609,9 @@ func TestRevokeRefreshToken(t *testing.T) {
 				ClientSecret: "revoke_secret123",
 				RefreshToken: "token_to_revoke_123",
 			},
-			serverStatus:  200,
-			expectedError: false,
+			serverResponse: "",
+			serverStatus:   200,
+			expectedError:  false,
 		},
 		{
 			name: "successful revocation with 204 No Content",
@@ -618,41 +620,56 @@ func TestRevokeRefreshToken(t *testing.T) {
 				ClientSecret: "revoke_secret123",
 				RefreshToken: "token_to_revoke_456",
 			},
-			serverStatus:  204,
-			expectedError: false,
+			serverResponse: "",
+			serverStatus:   204,
+			expectedError:  false,
 		},
 		{
-			name: "token not found - revoke functions return error for non-2xx status",
+			name: "token not found - revoke functions now decode error responses",
 			req: RevokeRefreshTokenRequest{
 				ClientID:     "com.example.service",
 				ClientSecret: "revoke_secret123",
 				RefreshToken: "non_existent_token",
 			},
+			serverResponse: `{
+				"error": "invalid_grant",
+				"error_description": "The token is invalid or does not exist"
+			}`,
 			serverStatus:  400,
-			expectedError: true,
-			errorContains: "apple returned a bad status and response was not decoded: 400 Bad Request",
+			expectedError: false, // No error because JSON was successfully decoded
+			expectedResp: ValidationResponse{
+				Error:            "invalid_grant",
+				ErrorDescription: "The token is invalid or does not exist",
+			},
 		},
 		{
-			name: "unauthorized client - revoke functions return error for non-2xx status",
+			name: "unauthorized client - revoke functions now decode error responses",
 			req: RevokeRefreshTokenRequest{
 				ClientID:     "invalid_client",
 				ClientSecret: "wrong_secret",
 				RefreshToken: "token_to_revoke_123",
 			},
+			serverResponse: `{
+				"error": "invalid_client",
+				"error_description": "Client authentication failed"
+			}`,
 			serverStatus:  401,
-			expectedError: true,
-			errorContains: "apple returned a bad status and response was not decoded: 401 Unauthorized",
+			expectedError: false, // No error because JSON was successfully decoded
+			expectedResp: ValidationResponse{
+				Error:            "invalid_client",
+				ErrorDescription: "Client authentication failed",
+			},
 		},
 		{
-			name: "server error - revoke functions return error for non-2xx status",
+			name: "server error with malformed response causes decode error",
 			req: RevokeRefreshTokenRequest{
 				ClientID:     "com.example.service",
 				ClientSecret: "revoke_secret123",
 				RefreshToken: "token_to_revoke_789",
 			},
-			serverStatus:  500,
-			expectedError: true,
-			errorContains: "apple returned a bad status and response was not decoded: 500 Internal Server Error",
+			serverResponse: "<html>Internal Server Error</html>",
+			serverStatus:   500,
+			expectedError:  true, // JSON decode error from HTML response
 		},
 	}
 
@@ -670,6 +687,9 @@ func TestRevokeRefreshToken(t *testing.T) {
 				assert.Equal(t, expectedBody, string(body))
 
 				w.WriteHeader(tt.serverStatus)
+				if tt.serverResponse != "" {
+					w.Write([]byte(tt.serverResponse))
+				}
 			}))
 			defer srv.Close()
 
@@ -682,11 +702,10 @@ func TestRevokeRefreshToken(t *testing.T) {
 
 			if tt.expectedError {
 				assert.Error(t, err)
-				if tt.errorContains != "" {
-					assert.Contains(t, err.Error(), tt.errorContains)
-				}
 			} else {
 				assert.NoError(t, err)
+				assert.Equal(t, tt.expectedResp.Error, resp.Error)
+				assert.Equal(t, tt.expectedResp.ErrorDescription, resp.ErrorDescription)
 			}
 		})
 	}
@@ -694,11 +713,12 @@ func TestRevokeRefreshToken(t *testing.T) {
 
 func TestRevokeAccessToken(t *testing.T) {
 	tests := []struct {
-		name          string
-		req           RevokeAccessTokenRequest
-		serverStatus  int
-		expectedError bool
-		errorContains string
+		name           string
+		req            RevokeAccessTokenRequest
+		serverResponse string
+		serverStatus   int
+		expectedError  bool
+		expectedResp   ValidationResponse
 	}{
 		{
 			name: "successful access token revocation",
@@ -707,41 +727,74 @@ func TestRevokeAccessToken(t *testing.T) {
 				ClientSecret: "revoke_secret123",
 				AccessToken:  "access_token_to_revoke_123",
 			},
-			serverStatus:  200,
-			expectedError: false,
+			serverResponse: "",
+			serverStatus:   200,
+			expectedError:  false,
 		},
 		{
-			name: "token already revoked - still returns error for non-2xx",
+			name: "token already revoked - now decodes error response",
 			req: RevokeAccessTokenRequest{
 				ClientID:     "com.example.service",
 				ClientSecret: "revoke_secret123",
 				AccessToken:  "already_revoked_token",
 			},
+			serverResponse: `{
+				"error": "invalid_grant",
+				"error_description": "Token has already been revoked"
+			}`,
 			serverStatus:  400,
-			expectedError: true,
-			errorContains: "apple returned a bad status and response was not decoded: 400 Bad Request",
+			expectedError: false, // No error because JSON was successfully decoded
+			expectedResp: ValidationResponse{
+				Error:            "invalid_grant",
+				ErrorDescription: "Token has already been revoked",
+			},
 		},
 		{
-			name: "invalid token format",
+			name: "invalid token format - now decodes error response",
 			req: RevokeAccessTokenRequest{
 				ClientID:     "com.example.service",
 				ClientSecret: "revoke_secret123",
 				AccessToken:  "malformed_token",
 			},
+			serverResponse: `{
+				"error": "invalid_request",
+				"error_description": "Invalid token format"
+			}`,
 			serverStatus:  400,
-			expectedError: true,
-			errorContains: "apple returned a bad status and response was not decoded: 400 Bad Request",
+			expectedError: false, // No error because JSON was successfully decoded
+			expectedResp: ValidationResponse{
+				Error:            "invalid_request",
+				ErrorDescription: "Invalid token format",
+			},
 		},
 		{
-			name: "rate limit exceeded",
+			name: "rate limit exceeded - now decodes error response",
 			req: RevokeAccessTokenRequest{
 				ClientID:     "com.example.service",
 				ClientSecret: "revoke_secret123",
 				AccessToken:  "access_token_to_revoke_456",
 			},
+			serverResponse: `{
+				"error": "rate_limit_exceeded",
+				"error_description": "Too many requests"
+			}`,
 			serverStatus:  429,
-			expectedError: true,
-			errorContains: "apple returned a bad status and response was not decoded: 429 Too Many Requests",
+			expectedError: false, // No error because JSON was successfully decoded
+			expectedResp: ValidationResponse{
+				Error:            "rate_limit_exceeded",
+				ErrorDescription: "Too many requests",
+			},
+		},
+		{
+			name: "server error with malformed response causes decode error",
+			req: RevokeAccessTokenRequest{
+				ClientID:     "com.example.service",
+				ClientSecret: "revoke_secret123",
+				AccessToken:  "access_token_to_revoke_789",
+			},
+			serverResponse: "<html>Internal Server Error</html>",
+			serverStatus:   500,
+			expectedError:  true, // JSON decode error from HTML response
 		},
 	}
 
@@ -759,6 +812,9 @@ func TestRevokeAccessToken(t *testing.T) {
 				assert.Equal(t, expectedBody, string(body))
 
 				w.WriteHeader(tt.serverStatus)
+				if tt.serverResponse != "" {
+					w.Write([]byte(tt.serverResponse))
+				}
 			}))
 			defer srv.Close()
 
@@ -771,11 +827,10 @@ func TestRevokeAccessToken(t *testing.T) {
 
 			if tt.expectedError {
 				assert.Error(t, err)
-				if tt.errorContains != "" {
-					assert.Contains(t, err.Error(), tt.errorContains)
-				}
 			} else {
 				assert.NoError(t, err)
+				assert.Equal(t, tt.expectedResp.Error, resp.Error)
+				assert.Equal(t, tt.expectedResp.ErrorDescription, resp.ErrorDescription)
 			}
 		})
 	}

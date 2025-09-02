@@ -137,7 +137,7 @@ func (c *Client) RevokeRefreshToken(ctx context.Context, reqBody RevokeRefreshTo
 		"token_type_hint": {"refresh_token"},
 	}
 
-	return doRevokeRequest(ctx, c.client, c.revokeURL, data)
+	return doRevokeRequest(ctx, c.client, &result, c.revokeURL, data)
 }
 
 // RevokeAccessToken revokes the Access Token and gets the revoke result
@@ -149,7 +149,7 @@ func (c *Client) RevokeAccessToken(ctx context.Context, reqBody RevokeAccessToke
 		"token_type_hint": {"access_token"},
 	}
 
-	return doRevokeRequest(ctx, c.client, c.revokeURL, data)
+	return doRevokeRequest(ctx, c.client, &result, c.revokeURL, data)
 }
 
 // GetUniqueID decodes the id_token response and returns the unique subject ID to identify the user
@@ -203,7 +203,7 @@ func doValidationRequest(ctx context.Context, client HTTPClient, result interfac
 }
 
 // doRevokeRequest handles revoke requests that only succeed on 2xx status codes
-func doRevokeRequest(ctx context.Context, client HTTPClient, url string, data url.Values) error {
+func doRevokeRequest(ctx context.Context, client HTTPClient, result interface{}, url string, data url.Values) error {
 	req, err := http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(data.Encode()))
 	if err != nil {
 		return err
@@ -218,8 +218,9 @@ func doRevokeRequest(ctx context.Context, client HTTPClient, url string, data ur
 		return err
 	}
 
+	// We only need to decode the result if there was an error. A successful revoke is a 200 without a body
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
-		return fmt.Errorf("apple returned a bad status and response was not decoded: %s", res.Status)
+		return json.NewDecoder(res.Body).Decode(result)
 	}
 
 	return nil
