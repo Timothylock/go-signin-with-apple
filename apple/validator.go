@@ -218,6 +218,10 @@ func doRevokeRequest(ctx context.Context, client HTTPClient, result interface{},
 		return err
 	}
 
+	if res.Body != nil {
+		defer res.Body.Close()
+	}
+
 	// We only need to decode the result if there was an error. A successful revoke is a 200 without a body
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
 		return json.NewDecoder(res.Body).Decode(result)
