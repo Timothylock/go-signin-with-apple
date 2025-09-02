@@ -3,6 +3,7 @@ package apple
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -194,85 +195,563 @@ func TestDoRequestSuccess(t *testing.T) {
 	var actual ValidationResponse
 
 	c := NewWithURL(srv.URL, "revokeUrl")
-	assert.NoError(t, doRequest(context.Background(), c.client, &actual, c.validationURL, url.Values{}))
+	assert.NoError(t, doRequest(context.Background(), c.client, &actual, c.validationURL, url.Values{}, false))
 	assert.Equal(t, "123", actual.IDToken)
 }
 
 func TestDoRequestBadServer(t *testing.T) {
 	var actual ValidationResponse
 	c := NewWithURL("foo.test", "revokeUrl")
-	assert.Error(t, doRequest(context.Background(), c.client, &actual, c.validationURL, url.Values{}))
+	assert.Error(t, doRequest(context.Background(), c.client, &actual, c.validationURL, url.Values{}, false))
 }
 
 func TestDoRequestNewRequestFail(t *testing.T) {
 	var actual ValidationResponse
 	c := NewWithURL("http://fo  o.test", "revokeUrl")
-	assert.Error(t, doRequest(context.Background(), c.client, &actual, c.validationURL, nil))
+	assert.Error(t, doRequest(context.Background(), c.client, &actual, c.validationURL, nil, false))
 }
 
 func TestVerifyAppToken(t *testing.T) {
-	req := AppValidationTokenRequest{
-		ClientID:     "123",
-		ClientSecret: "foo",
-		Code:         "bar",
+	tests := []struct {
+		name           string
+		req            AppValidationTokenRequest
+		serverResponse string
+		serverStatus   int
+		expectedError  bool
+		expectedResp   ValidationResponse
+	}{
+		{
+			name: "successful validation",
+			req: AppValidationTokenRequest{
+				ClientID:     "com.example.app",
+				ClientSecret: "secret123",
+				Code:         "auth_code_123",
+			},
+			serverResponse: `{
+				"access_token": "access_token_123",
+				"token_type": "bearer",
+				"expires_in": 3600,
+				"refresh_token": "refresh_token_123",
+				"id_token": "id_token_123"
+			}`,
+			serverStatus:  200,
+			expectedError: false,
+			expectedResp: ValidationResponse{
+				AccessToken:  "access_token_123",
+				TokenType:    "bearer",
+				ExpiresIn:    3600,
+				RefreshToken: "refresh_token_123",
+				IDToken:      "id_token_123",
+			},
+		},
+		{
+			name: "server error with JSON error response - validation functions always decode JSON",
+			req: AppValidationTokenRequest{
+				ClientID:     "invalid_client",
+				ClientSecret: "invalid_secret",
+				Code:         "auth_code_123",
+			},
+			serverResponse: `{
+				"error": "invalid_client",
+				"error_description": "Invalid client credentials"
+			}`,
+			serverStatus:  400,
+			expectedError: false, // No error because JSON was successfully decoded
+			expectedResp: ValidationResponse{
+				Error:            "invalid_client",
+				ErrorDescription: "Invalid client credentials",
+			},
+		},
+		{
+			name: "malformed JSON response causes decode error",
+			req: AppValidationTokenRequest{
+				ClientID:     "com.example.app",
+				ClientSecret: "secret123",
+				Code:         "auth_code_123",
+			},
+			serverResponse: "invalid json response",
+			serverStatus:   200,
+			expectedError:  true, // JSON decode error
+		},
+		{
+			name: "empty response body causes decode error",
+			req: AppValidationTokenRequest{
+				ClientID:     "com.example.app",
+				ClientSecret: "secret123",
+				Code:         "auth_code_123",
+			},
+			serverResponse: "",
+			serverStatus:   500,
+			expectedError:  true, // EOF error from empty JSON
+		},
 	}
-	var resp ValidationResponse
 
-	srv := setupServerCompareURL(t, "client_id=123&client_secret=foo&code=bar&grant_type=authorization_code")
-	c := NewWithURL(srv.URL, "revokeUrl")
-	c.VerifyAppToken(context.Background(), req, resp) // We aren't testing whether this will error
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, "POST", r.Method)
+				assert.Equal(t, ContentType, r.Header.Get("content-type"))
+				assert.Equal(t, AcceptHeader, r.Header.Get("accept"))
+				assert.Equal(t, UserAgent, r.Header.Get("user-agent"))
+				body, err := ioutil.ReadAll(r.Body)
+				assert.NoError(t, err)
+				expectedBody := "client_id=123&client_secret=foo&code=bar&grant_type=authorization_code"
+				expectedBody = fmt.Sprintf("client_id=%s&client_secret=%s&code=%s&grant_type=authorization_code",
+					tt.req.ClientID, tt.req.ClientSecret, tt.req.Code)
+				assert.Equal(t, expectedBody, string(body))
+
+				w.WriteHeader(tt.serverStatus)
+				if tt.serverResponse != "" {
+					w.Write([]byte(tt.serverResponse))
+				}
+			}))
+			defer srv.Close()
+
+			c := NewWithURL(srv.URL, "revokeUrl")
+			var resp ValidationResponse
+			err := c.VerifyAppToken(context.Background(), tt.req, &resp)
+
+			if tt.expectedError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.expectedResp.AccessToken, resp.AccessToken)
+				assert.Equal(t, tt.expectedResp.TokenType, resp.TokenType)
+				assert.Equal(t, tt.expectedResp.ExpiresIn, resp.ExpiresIn)
+				assert.Equal(t, tt.expectedResp.RefreshToken, resp.RefreshToken)
+				assert.Equal(t, tt.expectedResp.IDToken, resp.IDToken)
+				assert.Equal(t, tt.expectedResp.Error, resp.Error)
+				assert.Equal(t, tt.expectedResp.ErrorDescription, resp.ErrorDescription)
+			}
+		})
+	}
 }
 
 func TestVerifyNonAppToken(t *testing.T) {
-	req := WebValidationTokenRequest{
-		ClientID:     "123",
-		ClientSecret: "foo",
-		Code:         "bar",
-		RedirectURI:  "http://foo.test",
+	tests := []struct {
+		name           string
+		req            WebValidationTokenRequest
+		serverResponse string
+		serverStatus   int
+		expectedError  bool
+		expectedResp   ValidationResponse
+	}{
+		{
+			name: "successful web token validation",
+			req: WebValidationTokenRequest{
+				ClientID:     "com.example.service",
+				ClientSecret: "web_secret123",
+				Code:         "web_auth_code_456",
+				RedirectURI:  "https://example.com/callback",
+			},
+			serverResponse: `{
+				"access_token": "web_access_token_456",
+				"token_type": "bearer",
+				"expires_in": 7200,
+				"refresh_token": "web_refresh_token_456",
+				"id_token": "web_id_token_456"
+			}`,
+			serverStatus:  200,
+			expectedError: false,
+			expectedResp: ValidationResponse{
+				AccessToken:  "web_access_token_456",
+				TokenType:    "bearer",
+				ExpiresIn:    7200,
+				RefreshToken: "web_refresh_token_456",
+				IDToken:      "web_id_token_456",
+			},
+		},
+		{
+			name: "invalid authorization code with JSON error - validation always decodes",
+			req: WebValidationTokenRequest{
+				ClientID:     "com.example.service",
+				ClientSecret: "web_secret123",
+				Code:         "expired_code",
+				RedirectURI:  "https://example.com/callback",
+			},
+			serverResponse: `{
+				"error": "invalid_grant",
+				"error_description": "The authorization code is invalid or has expired"
+			}`,
+			serverStatus:  400,
+			expectedError: false, // No error because JSON was successfully decoded
+			expectedResp: ValidationResponse{
+				Error:            "invalid_grant",
+				ErrorDescription: "The authorization code is invalid or has expired",
+			},
+		},
+		{
+			name: "redirect URI mismatch with error response",
+			req: WebValidationTokenRequest{
+				ClientID:     "com.example.service",
+				ClientSecret: "web_secret123",
+				Code:         "valid_code",
+				RedirectURI:  "https://wrong-domain.com/callback",
+			},
+			serverResponse: `{
+				"error": "invalid_request",
+				"error_description": "Redirect URI mismatch"
+			}`,
+			serverStatus:  400,
+			expectedError: false,
+			expectedResp: ValidationResponse{
+				Error:            "invalid_request",
+				ErrorDescription: "Redirect URI mismatch",
+			},
+		},
+		{
+			name: "network timeout simulation with malformed response",
+			req: WebValidationTokenRequest{
+				ClientID:     "com.example.service",
+				ClientSecret: "web_secret123",
+				Code:         "auth_code_789",
+				RedirectURI:  "https://example.com/callback",
+			},
+			serverResponse: "timeout error html page",
+			serverStatus:   504,
+			expectedError:  true, // JSON decode error from HTML response
+		},
 	}
-	var resp ValidationResponse
 
-	srv := setupServerCompareURL(t, "client_id=123&client_secret=foo&code=bar&grant_type=authorization_code&redirect_uri=http%3A%2F%2Ffoo.test")
-	c := NewWithURL(srv.URL, "revokeUrl")
-	c.VerifyWebToken(context.Background(), req, resp) // We aren't testing whether this will error
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, "POST", r.Method)
+				assert.Equal(t, ContentType, r.Header.Get("content-type"))
+				assert.Equal(t, AcceptHeader, r.Header.Get("accept"))
+				assert.Equal(t, UserAgent, r.Header.Get("user-agent"))
+
+				body, err := ioutil.ReadAll(r.Body)
+				assert.NoError(t, err)
+				expectedBody := fmt.Sprintf("client_id=%s&client_secret=%s&code=%s&grant_type=authorization_code&redirect_uri=%s",
+					tt.req.ClientID, tt.req.ClientSecret, tt.req.Code, url.QueryEscape(tt.req.RedirectURI))
+				assert.Equal(t, expectedBody, string(body))
+
+				w.WriteHeader(tt.serverStatus)
+				if tt.serverResponse != "" {
+					w.Write([]byte(tt.serverResponse))
+				}
+			}))
+			defer srv.Close()
+
+			c := NewWithURL(srv.URL, "revokeUrl")
+			var resp ValidationResponse
+			err := c.VerifyWebToken(context.Background(), tt.req, &resp)
+
+			if tt.expectedError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.expectedResp.AccessToken, resp.AccessToken)
+				assert.Equal(t, tt.expectedResp.TokenType, resp.TokenType)
+				assert.Equal(t, tt.expectedResp.ExpiresIn, resp.ExpiresIn)
+				assert.Equal(t, tt.expectedResp.RefreshToken, resp.RefreshToken)
+				assert.Equal(t, tt.expectedResp.IDToken, resp.IDToken)
+				assert.Equal(t, tt.expectedResp.Error, resp.Error)
+				assert.Equal(t, tt.expectedResp.ErrorDescription, resp.ErrorDescription)
+			}
+		})
+	}
 }
 
 func TestVerifyRefreshToken(t *testing.T) {
-	req := ValidationRefreshRequest{
-		ClientID:     "123",
-		ClientSecret: "foo",
-		RefreshToken: "bar",
+	tests := []struct {
+		name           string
+		req            ValidationRefreshRequest
+		serverResponse string
+		serverStatus   int
+		expectedError  bool
+		expectedResp   ValidationResponse
+	}{
+		{
+			name: "successful refresh token validation",
+			req: ValidationRefreshRequest{
+				ClientID:     "com.example.service",
+				ClientSecret: "refresh_secret123",
+				RefreshToken: "valid_refresh_token_789",
+			},
+			serverResponse: `{
+				"access_token": "new_access_token_789",
+				"token_type": "bearer",
+				"expires_in": 3600
+			}`,
+			serverStatus:  200,
+			expectedError: false,
+			expectedResp: ValidationResponse{
+				AccessToken: "new_access_token_789",
+				TokenType:   "bearer",
+				ExpiresIn:   3600,
+			},
+		},
+		{
+			name: "expired refresh token with error response",
+			req: ValidationRefreshRequest{
+				ClientID:     "com.example.service",
+				ClientSecret: "refresh_secret123",
+				RefreshToken: "expired_refresh_token",
+			},
+			serverResponse: `{
+				"error": "invalid_grant",
+				"error_description": "The refresh token is invalid, expired, or revoked"
+			}`,
+			serverStatus:  400,
+			expectedError: false, // Validation functions always decode JSON
+			expectedResp: ValidationResponse{
+				Error:            "invalid_grant",
+				ErrorDescription: "The refresh token is invalid, expired, or revoked",
+			},
+		},
+		{
+			name: "unauthorized client error",
+			req: ValidationRefreshRequest{
+				ClientID:     "invalid_client_id",
+				ClientSecret: "wrong_secret",
+				RefreshToken: "valid_refresh_token_789",
+			},
+			serverResponse: `{
+				"error": "invalid_client",
+				"error_description": "Client authentication failed"
+			}`,
+			serverStatus:  401,
+			expectedError: false,
+			expectedResp: ValidationResponse{
+				Error:            "invalid_client",
+				ErrorDescription: "Client authentication failed",
+			},
+		},
+		{
+			name: "server error with malformed response",
+			req: ValidationRefreshRequest{
+				ClientID:     "com.example.service",
+				ClientSecret: "refresh_secret123",
+				RefreshToken: "valid_refresh_token_789",
+			},
+			serverResponse: "<html>Internal Server Error</html>",
+			serverStatus:   500,
+			expectedError:  true, // JSON decode error
+		},
 	}
-	var resp ValidationResponse
 
-	srv := setupServerCompareURL(t, "client_id=123&client_secret=foo&grant_type=refresh_token&refresh_token=bar")
-	c := NewWithURL(srv.URL, "revokeUrl")
-	c.VerifyRefreshToken(context.Background(), req, resp) // We aren't testing whether this will error
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, "POST", r.Method)
+				assert.Equal(t, ContentType, r.Header.Get("content-type"))
+				assert.Equal(t, AcceptHeader, r.Header.Get("accept"))
+				assert.Equal(t, UserAgent, r.Header.Get("user-agent"))
+				body, err := ioutil.ReadAll(r.Body)
+				assert.NoError(t, err)
+				expectedBody := fmt.Sprintf("client_id=%s&client_secret=%s&grant_type=refresh_token&refresh_token=%s",
+					tt.req.ClientID, tt.req.ClientSecret, tt.req.RefreshToken)
+				assert.Equal(t, expectedBody, string(body))
+
+				w.WriteHeader(tt.serverStatus)
+				if tt.serverResponse != "" {
+					w.Write([]byte(tt.serverResponse))
+				}
+			}))
+			defer srv.Close()
+
+			c := NewWithURL(srv.URL, "revokeUrl")
+			var resp ValidationResponse
+			err := c.VerifyRefreshToken(context.Background(), tt.req, &resp)
+
+			if tt.expectedError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.expectedResp.AccessToken, resp.AccessToken)
+				assert.Equal(t, tt.expectedResp.TokenType, resp.TokenType)
+				assert.Equal(t, tt.expectedResp.ExpiresIn, resp.ExpiresIn)
+				assert.Equal(t, tt.expectedResp.RefreshToken, resp.RefreshToken)
+				assert.Equal(t, tt.expectedResp.IDToken, resp.IDToken)
+				assert.Equal(t, tt.expectedResp.Error, resp.Error)
+				assert.Equal(t, tt.expectedResp.ErrorDescription, resp.ErrorDescription)
+			}
+		})
+	}
 }
 
 func TestRevokeRefreshToken(t *testing.T) {
-	req := RevokeRefreshTokenRequest{
-		ClientID:     "123",
-		ClientSecret: "foo",
-		RefreshToken: "bar",
+	tests := []struct {
+		name          string
+		req           RevokeRefreshTokenRequest
+		serverStatus  int
+		expectedError bool
+		errorContains string
+	}{
+		{
+			name: "successful revocation",
+			req: RevokeRefreshTokenRequest{
+				ClientID:     "com.example.service",
+				ClientSecret: "revoke_secret123",
+				RefreshToken: "token_to_revoke_123",
+			},
+			serverStatus:  200,
+			expectedError: false,
+		},
+		{
+			name: "successful revocation with 204 No Content",
+			req: RevokeRefreshTokenRequest{
+				ClientID:     "com.example.service",
+				ClientSecret: "revoke_secret123",
+				RefreshToken: "token_to_revoke_456",
+			},
+			serverStatus:  204,
+			expectedError: false,
+		},
+		{
+			name: "token not found - revoke functions return error for non-2xx status",
+			req: RevokeRefreshTokenRequest{
+				ClientID:     "com.example.service",
+				ClientSecret: "revoke_secret123",
+				RefreshToken: "non_existent_token",
+			},
+			serverStatus:  400,
+			expectedError: true,
+			errorContains: "apple returned a bad status and response was not decoded: 400 Bad Request",
+		},
+		{
+			name: "unauthorized client - revoke functions return error for non-2xx status",
+			req: RevokeRefreshTokenRequest{
+				ClientID:     "invalid_client",
+				ClientSecret: "wrong_secret",
+				RefreshToken: "token_to_revoke_123",
+			},
+			serverStatus:  401,
+			expectedError: true,
+			errorContains: "apple returned a bad status and response was not decoded: 401 Unauthorized",
+		},
+		{
+			name: "server error - revoke functions return error for non-2xx status",
+			req: RevokeRefreshTokenRequest{
+				ClientID:     "com.example.service",
+				ClientSecret: "revoke_secret123",
+				RefreshToken: "token_to_revoke_789",
+			},
+			serverStatus:  500,
+			expectedError: true,
+			errorContains: "apple returned a bad status and response was not decoded: 500 Internal Server Error",
+		},
 	}
-	var resp ValidationResponse
 
-	srv := setupServerCompareURL(t, "client_id=123&client_secret=foo&token=bar&token_type_hint=refresh_token")
-	c := NewWithURL("verifyUrl", srv.URL)
-	c.RevokeRefreshToken(context.Background(), req, resp) // We aren't testing whether this will error
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, "POST", r.Method)
+				assert.Equal(t, ContentType, r.Header.Get("content-type"))
+				assert.Equal(t, AcceptHeader, r.Header.Get("accept"))
+				assert.Equal(t, UserAgent, r.Header.Get("user-agent"))
+				body, err := ioutil.ReadAll(r.Body)
+				assert.NoError(t, err)
+				expectedBody := fmt.Sprintf("client_id=%s&client_secret=%s&token=%s&token_type_hint=refresh_token",
+					tt.req.ClientID, tt.req.ClientSecret, tt.req.RefreshToken)
+				assert.Equal(t, expectedBody, string(body))
+
+				w.WriteHeader(tt.serverStatus)
+			}))
+			defer srv.Close()
+
+			c := NewWithURL("validationUrl", srv.URL)
+			var resp ValidationResponse
+			err := c.RevokeRefreshToken(context.Background(), tt.req, &resp)
+
+			if tt.expectedError {
+				assert.Error(t, err)
+				if tt.errorContains != "" {
+					assert.Contains(t, err.Error(), tt.errorContains)
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
 }
-func TestRevokeAccessToken(t *testing.T) {
-	req := RevokeAccessTokenRequest{
-		ClientID:     "123",
-		ClientSecret: "foo",
-		AccessToken:  "bar",
-	}
-	var resp ValidationResponse
 
-	srv := setupServerCompareURL(t, "client_id=123&client_secret=foo&token=bar&token_type_hint=access_token")
-	c := NewWithURL("verifyUrl", srv.URL)
-	c.RevokeAccessToken(context.Background(), req, resp) // We aren't testing whether this will error
+func TestRevokeAccessToken(t *testing.T) {
+	tests := []struct {
+		name          string
+		req           RevokeAccessTokenRequest
+		serverStatus  int
+		expectedError bool
+		errorContains string
+	}{
+		{
+			name: "successful access token revocation",
+			req: RevokeAccessTokenRequest{
+				ClientID:     "com.example.service",
+				ClientSecret: "revoke_secret123",
+				AccessToken:  "access_token_to_revoke_123",
+			},
+			serverStatus:  200,
+			expectedError: false,
+		},
+		{
+			name: "token already revoked - still returns error for non-2xx",
+			req: RevokeAccessTokenRequest{
+				ClientID:     "com.example.service",
+				ClientSecret: "revoke_secret123",
+				AccessToken:  "already_revoked_token",
+			},
+			serverStatus:  400,
+			expectedError: true,
+			errorContains: "apple returned a bad status and response was not decoded: 400 Bad Request",
+		},
+		{
+			name: "invalid token format",
+			req: RevokeAccessTokenRequest{
+				ClientID:     "com.example.service",
+				ClientSecret: "revoke_secret123",
+				AccessToken:  "malformed_token",
+			},
+			serverStatus:  400,
+			expectedError: true,
+			errorContains: "apple returned a bad status and response was not decoded: 400 Bad Request",
+		},
+		{
+			name: "rate limit exceeded",
+			req: RevokeAccessTokenRequest{
+				ClientID:     "com.example.service",
+				ClientSecret: "revoke_secret123",
+				AccessToken:  "access_token_to_revoke_456",
+			},
+			serverStatus:  429,
+			expectedError: true,
+			errorContains: "apple returned a bad status and response was not decoded: 429 Too Many Requests",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, "POST", r.Method)
+				assert.Equal(t, ContentType, r.Header.Get("content-type"))
+				assert.Equal(t, AcceptHeader, r.Header.Get("accept"))
+				assert.Equal(t, UserAgent, r.Header.Get("user-agent"))
+				body, err := ioutil.ReadAll(r.Body)
+				assert.NoError(t, err)
+				expectedBody := fmt.Sprintf("client_id=%s&client_secret=%s&token=%s&token_type_hint=access_token",
+					tt.req.ClientID, tt.req.ClientSecret, tt.req.AccessToken)
+				assert.Equal(t, expectedBody, string(body))
+
+				w.WriteHeader(tt.serverStatus)
+			}))
+			defer srv.Close()
+
+			c := NewWithURL("validationUrl", srv.URL)
+			var resp ValidationResponse
+			err := c.RevokeAccessToken(context.Background(), tt.req, &resp)
+
+			if tt.expectedError {
+				assert.Error(t, err)
+				if tt.errorContains != "" {
+					assert.Contains(t, err.Error(), tt.errorContains)
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
 }
 
 // setupServerCompareURL sets up an httptest server to compare the given URLs. You must close the server

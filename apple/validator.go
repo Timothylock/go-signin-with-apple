@@ -101,7 +101,7 @@ func (c *Client) VerifyWebToken(ctx context.Context, reqBody WebValidationTokenR
 		"grant_type":    {"authorization_code"},
 	}
 
-	return doRequest(ctx, c.client, &result, c.validationURL, data)
+	return doRequest(ctx, c.client, &result, c.validationURL, data, false)
 }
 
 // VerifyAppToken sends the AppValidationTokenRequest and gets validation result
@@ -113,7 +113,7 @@ func (c *Client) VerifyAppToken(ctx context.Context, reqBody AppValidationTokenR
 		"grant_type":    {"authorization_code"},
 	}
 
-	return doRequest(ctx, c.client, &result, c.validationURL, data)
+	return doRequest(ctx, c.client, &result, c.validationURL, data, false)
 }
 
 // VerifyRefreshToken sends the WebValidationTokenRequest and gets validation result
@@ -125,7 +125,7 @@ func (c *Client) VerifyRefreshToken(ctx context.Context, reqBody ValidationRefre
 		"grant_type":    {"refresh_token"},
 	}
 
-	return doRequest(ctx, c.client, &result, c.validationURL, data)
+	return doRequest(ctx, c.client, &result, c.validationURL, data, false)
 }
 
 // RevokeRefreshToken revokes the Refresh Token and gets the revoke result
@@ -137,7 +137,7 @@ func (c *Client) RevokeRefreshToken(ctx context.Context, reqBody RevokeRefreshTo
 		"token_type_hint": {"refresh_token"},
 	}
 
-	return doRequest(ctx, c.client, &result, c.revokeURL, data)
+	return doRequest(ctx, c.client, &result, c.revokeURL, data, true)
 }
 
 // RevokeAccessToken revokes the Access Token and gets the revoke result
@@ -149,7 +149,7 @@ func (c *Client) RevokeAccessToken(ctx context.Context, reqBody RevokeAccessToke
 		"token_type_hint": {"access_token"},
 	}
 
-	return doRequest(ctx, c.client, &result, c.revokeURL, data)
+	return doRequest(ctx, c.client, &result, c.revokeURL, data, true)
 }
 
 // GetUniqueID decodes the id_token response and returns the unique subject ID to identify the user
@@ -182,7 +182,7 @@ func GetClaims(idToken string) (*jwt.MapClaims, error) {
 	return &claims, nil
 }
 
-func doRequest(ctx context.Context, client HTTPClient, result interface{}, url string, data url.Values) error {
+func doRequest(ctx context.Context, client HTTPClient, result interface{}, url string, data url.Values, skipDecodingBody bool) error {
 	req, err := http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(data.Encode()))
 	if err != nil {
 		return err
@@ -197,7 +197,12 @@ func doRequest(ctx context.Context, client HTTPClient, result interface{}, url s
 		return err
 	}
 
-	defer res.Body.Close()
+	if skipDecodingBody && (res.StatusCode < 200 || res.StatusCode >= 300) {
+		return fmt.Errorf("apple returned a bad status and response was not decoded: %s", res.Status)
+	} else if skipDecodingBody {
+		return nil
+	}
 
+	defer res.Body.Close()
 	return json.NewDecoder(res.Body).Decode(result)
 }
