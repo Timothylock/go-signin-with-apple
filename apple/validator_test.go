@@ -25,7 +25,10 @@ func TestNew(t *testing.T) {
 }
 
 func TestNewWithURL(t *testing.T) {
-	c := NewWithURL("validationURL", "revokeURL")
+	c := NewWithOptions(ClientOptions{
+		ValidationURL: "validationURL",
+		RevokeURL:     "revokeURL",
+	})
 
 	assert.IsType(t, &Client{}, c, "expected New to return a Client type")
 	assert.Equal(t, "validationURL", c.validationURL, "expected the client's validation url to be %s, but got %s", "validationURL", c.validationURL)
@@ -194,20 +197,29 @@ func TestDoRequestSuccess(t *testing.T) {
 
 	var actual ValidationResponse
 
-	c := NewWithURL(srv.URL, "revokeUrl")
+	c := NewWithOptions(ClientOptions{
+		ValidationURL: srv.URL,
+		RevokeURL:     "revokeUrl",
+	})
 	assert.NoError(t, doRequest(context.Background(), c.client, &actual, c.validationURL, url.Values{}, false))
 	assert.Equal(t, "123", actual.IDToken)
 }
 
 func TestDoRequestBadServer(t *testing.T) {
 	var actual ValidationResponse
-	c := NewWithURL("foo.test", "revokeUrl")
+	c := NewWithOptions(ClientOptions{
+		ValidationURL: "foo.test",
+		RevokeURL:     "revokeUrl",
+	})
 	assert.Error(t, doRequest(context.Background(), c.client, &actual, c.validationURL, url.Values{}, false))
 }
 
 func TestDoRequestNewRequestFail(t *testing.T) {
 	var actual ValidationResponse
-	c := NewWithURL("http://fo  o.test", "revokeUrl")
+	c := NewWithOptions(ClientOptions{
+		ValidationURL: "http://fo  o.test",
+		RevokeURL:     "revokeUrl",
+	})
 	assert.Error(t, doRequest(context.Background(), c.client, &actual, c.validationURL, nil, false))
 }
 
@@ -307,7 +319,10 @@ func TestVerifyAppToken(t *testing.T) {
 			}))
 			defer srv.Close()
 
-			c := NewWithURL(srv.URL, "revokeUrl")
+			c := NewWithOptions(ClientOptions{
+				ValidationURL: srv.URL,
+				RevokeURL:     "revokeUrl",
+			})
 			var resp ValidationResponse
 			err := c.VerifyAppToken(context.Background(), tt.req, &resp)
 
@@ -434,7 +449,10 @@ func TestVerifyNonAppToken(t *testing.T) {
 			}))
 			defer srv.Close()
 
-			c := NewWithURL(srv.URL, "revokeUrl")
+			c := NewWithOptions(ClientOptions{
+				ValidationURL: srv.URL,
+				RevokeURL:     "revokeUrl",
+			})
 			var resp ValidationResponse
 			err := c.VerifyWebToken(context.Background(), tt.req, &resp)
 
@@ -552,7 +570,10 @@ func TestVerifyRefreshToken(t *testing.T) {
 			}))
 			defer srv.Close()
 
-			c := NewWithURL(srv.URL, "revokeUrl")
+			c := NewWithOptions(ClientOptions{
+				ValidationURL: srv.URL,
+				RevokeURL:     "revokeUrl",
+			})
 			var resp ValidationResponse
 			err := c.VerifyRefreshToken(context.Background(), tt.req, &resp)
 
@@ -652,7 +673,10 @@ func TestRevokeRefreshToken(t *testing.T) {
 			}))
 			defer srv.Close()
 
-			c := NewWithURL("validationUrl", srv.URL)
+			c := NewWithOptions(ClientOptions{
+				ValidationURL: "validationUrl",
+				RevokeURL:     srv.URL,
+			})
 			var resp ValidationResponse
 			err := c.RevokeRefreshToken(context.Background(), tt.req, &resp)
 
@@ -738,7 +762,10 @@ func TestRevokeAccessToken(t *testing.T) {
 			}))
 			defer srv.Close()
 
-			c := NewWithURL("validationUrl", srv.URL)
+			c := NewWithOptions(ClientOptions{
+				ValidationURL: "validationUrl",
+				RevokeURL:     srv.URL,
+			})
 			var resp ValidationResponse
 			err := c.RevokeAccessToken(context.Background(), tt.req, &resp)
 
