@@ -201,7 +201,7 @@ func TestDoRequestSuccess(t *testing.T) {
 		ValidationURL: srv.URL,
 		RevokeURL:     "revokeUrl",
 	})
-	assert.NoError(t, doRequest(context.Background(), c.client, &actual, c.validationURL, url.Values{}, false))
+	assert.NoError(t, doValidationRequest(context.Background(), c.client, &actual, c.validationURL, url.Values{}))
 	assert.Equal(t, "123", actual.IDToken)
 }
 
@@ -211,7 +211,7 @@ func TestDoRequestBadServer(t *testing.T) {
 		ValidationURL: "foo.test",
 		RevokeURL:     "revokeUrl",
 	})
-	assert.Error(t, doRequest(context.Background(), c.client, &actual, c.validationURL, url.Values{}, false))
+	assert.Error(t, doValidationRequest(context.Background(), c.client, &actual, c.validationURL, url.Values{}))
 }
 
 func TestDoRequestNewRequestFail(t *testing.T) {
@@ -220,7 +220,7 @@ func TestDoRequestNewRequestFail(t *testing.T) {
 		ValidationURL: "http://fo  o.test",
 		RevokeURL:     "revokeUrl",
 	})
-	assert.Error(t, doRequest(context.Background(), c.client, &actual, c.validationURL, nil, false))
+	assert.Error(t, doValidationRequest(context.Background(), c.client, &actual, c.validationURL, nil))
 }
 
 func TestVerifyAppToken(t *testing.T) {

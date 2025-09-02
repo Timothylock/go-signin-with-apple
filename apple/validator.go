@@ -101,7 +101,7 @@ func (c *Client) VerifyWebToken(ctx context.Context, reqBody WebValidationTokenR
 		"grant_type":    {"authorization_code"},
 	}
 
-	return doRequest(ctx, c.client, &result, c.validationURL, data, false)
+	return doValidationRequest(ctx, c.client, &result, c.validationURL, data)
 }
 
 // VerifyAppToken sends the AppValidationTokenRequest and gets validation result
@@ -113,7 +113,7 @@ func (c *Client) VerifyAppToken(ctx context.Context, reqBody AppValidationTokenR
 		"grant_type":    {"authorization_code"},
 	}
 
-	return doRequest(ctx, c.client, &result, c.validationURL, data, false)
+	return doValidationRequest(ctx, c.client, &result, c.validationURL, data)
 }
 
 // VerifyRefreshToken sends the WebValidationTokenRequest and gets validation result
@@ -125,7 +125,7 @@ func (c *Client) VerifyRefreshToken(ctx context.Context, reqBody ValidationRefre
 		"grant_type":    {"refresh_token"},
 	}
 
-	return doRequest(ctx, c.client, &result, c.validationURL, data, false)
+	return doValidationRequest(ctx, c.client, &result, c.validationURL, data)
 }
 
 // RevokeRefreshToken revokes the Refresh Token and gets the revoke result
@@ -137,7 +137,7 @@ func (c *Client) RevokeRefreshToken(ctx context.Context, reqBody RevokeRefreshTo
 		"token_type_hint": {"refresh_token"},
 	}
 
-	return doRequest(ctx, c.client, &result, c.revokeURL, data, true)
+	return doRevokeRequest(ctx, c.client, c.revokeURL, data)
 }
 
 // RevokeAccessToken revokes the Access Token and gets the revoke result
@@ -149,7 +149,7 @@ func (c *Client) RevokeAccessToken(ctx context.Context, reqBody RevokeAccessToke
 		"token_type_hint": {"access_token"},
 	}
 
-	return doRequest(ctx, c.client, &result, c.revokeURL, data, true)
+	return doRevokeRequest(ctx, c.client, c.revokeURL, data)
 }
 
 // GetUniqueID decodes the id_token response and returns the unique subject ID to identify the user
@@ -182,7 +182,8 @@ func GetClaims(idToken string) (*jwt.MapClaims, error) {
 	return &claims, nil
 }
 
-func doRequest(ctx context.Context, client HTTPClient, result interface{}, url string, data url.Values, skipDecodingBody bool) error {
+// doValidationRequest handles validation requests that always decode JSON responses
+func doValidationRequest(ctx context.Context, client HTTPClient, result interface{}, url string, data url.Values) error {
 	req, err := http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(data.Encode()))
 	if err != nil {
 		return err
@@ -197,12 +198,29 @@ func doRequest(ctx context.Context, client HTTPClient, result interface{}, url s
 		return err
 	}
 
-	if skipDecodingBody && (res.StatusCode < 200 || res.StatusCode >= 300) {
-		return fmt.Errorf("apple returned a bad status and response was not decoded: %s", res.Status)
-	} else if skipDecodingBody {
-		return nil
-	}
-
 	defer res.Body.Close()
 	return json.NewDecoder(res.Body).Decode(result)
+}
+
+// doRevokeRequest handles revoke requests that only succeed on 2xx status codes
+func doRevokeRequest(ctx context.Context, client HTTPClient, url string, data url.Values) error {
+	req, err := http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(data.Encode()))
+	if err != nil {
+		return err
+	}
+
+	req.Header.Add("content-type", ContentType)
+	req.Header.Add("accept", AcceptHeader)
+	req.Header.Add("user-agent", UserAgent) // apple requires a user agent
+
+	res, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+
+	if res.StatusCode < 200 || res.StatusCode >= 300 {
+		return fmt.Errorf("apple returned a bad status and response was not decoded: %s", res.Status)
+	}
+
+	return nil
 }
