@@ -64,7 +64,7 @@ type ServerNotificationPayload struct {
 	EventTime int64 `json:"event_time"`
 }
 
-// ServerNotificationClaims contains the verified claims from an Apple server-to-server notification JWT
+// ServerNotificationClaims contains the parsed claims from an Apple server-to-server notification JWT
 type ServerNotificationClaims struct {
 	Issuer    string                    `json:"iss"`
 	Audience  string                    `json:"aud"`

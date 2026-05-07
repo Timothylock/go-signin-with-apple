@@ -42,7 +42,7 @@
 // # Server Notifications
 //
 // Apple sends a signed JWT to a registered webhook URL when a user revokes access
-// or deletes their Apple ID. Use [Client.ParseAndVerifyServerNotification] to parse
+// or deletes their Apple ID. Use [Client.ParseServerNotification] to parse
 // the event. You must delete all user data within 30 days of an account-delete event.
 // See Apple's TN3194 for details.
 //

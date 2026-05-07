@@ -15,18 +15,24 @@ import (
 
 func makeNotificationToken(t *testing.T, privKey *rsa.PrivateKey, kid string, baseClaims jwt.MapClaims, events interface{}) string {
 	t.Helper()
+
+	// Copy baseClaims to avoid mutating the caller's map across subtests
+	claims := make(jwt.MapClaims, len(baseClaims)+1)
+	for k, v := range baseClaims {
+		claims[k] = v
+	}
 	eventsJSON, err := json.Marshal(events)
 	require.NoError(t, err)
-	baseClaims["events"] = string(eventsJSON)
+	claims["events"] = string(eventsJSON)
 
-	token := jwt.NewWithClaims(jwt.SigningMethodRS256, baseClaims)
+	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
 	token.Header["kid"] = kid
 	signed, err := token.SignedString(privKey)
 	require.NoError(t, err)
 	return signed
 }
 
-func TestParseAndVerifyServerNotification(t *testing.T) {
+func TestParseServerNotification(t *testing.T) {
 	privKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	require.NoError(t, err)
 
@@ -47,7 +53,7 @@ func TestParseAndVerifyServerNotification(t *testing.T) {
 		payload := makeNotificationToken(t, privKey, "test-kid", validBaseClaims, validEvents)
 
 		c := New()
-		claims, err := c.ParseAndVerifyServerNotification(context.Background(), payload)
+		claims, err := c.ParseServerNotification(context.Background(), payload)
 		require.NoError(t, err)
 
 		assert.Equal(t, AppleIssuer, claims.Issuer)
@@ -65,7 +71,7 @@ func TestParseAndVerifyServerNotification(t *testing.T) {
 		payload := makeNotificationToken(t, privKey, "test-kid", validBaseClaims, deleteEvents)
 
 		c := New()
-		claims, err := c.ParseAndVerifyServerNotification(context.Background(), payload)
+		claims, err := c.ParseServerNotification(context.Background(), payload)
 		require.NoError(t, err)
 		assert.Equal(t, "account-delete", claims.Events.Type)
 	})
@@ -83,13 +89,13 @@ func TestParseAndVerifyServerNotification(t *testing.T) {
 		require.NoError(t, err)
 
 		c := New()
-		_, err = c.ParseAndVerifyServerNotification(context.Background(), payload)
+		_, err = c.ParseServerNotification(context.Background(), payload)
 		assert.Error(t, err)
 	})
 
 	t.Run("malformed jwt returns error", func(t *testing.T) {
 		c := New()
-		_, err := c.ParseAndVerifyServerNotification(context.Background(), "not.a.jwt")
+		_, err := c.ParseServerNotification(context.Background(), "not.a.jwt")
 		assert.Error(t, err)
 	})
 }

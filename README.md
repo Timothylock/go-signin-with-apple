@@ -155,7 +155,7 @@ Apple sends a signed JWT to a webhook URL you register in the Developer portal w
 client := apple.New()
 
 http.HandleFunc("/apple/notifications", func(w http.ResponseWriter, r *http.Request) {
-    notification, err := client.ParseAndVerifyServerNotification(r.Context(), r.FormValue("payload"))
+    notification, err := client.ParseServerNotification(r.Context(), r.FormValue("payload"))
     if err != nil {
         w.WriteHeader(http.StatusBadRequest)
         return

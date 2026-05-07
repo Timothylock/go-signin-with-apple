@@ -1,7 +1,6 @@
 package example
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"testing"
@@ -26,7 +25,7 @@ func TestHandleServerNotification(t *testing.T) {
 		// Apple sends the signed JWT in the "payload" form field
 		jwtPayload := r.FormValue("payload")
 
-		notification, err := client.ParseAndVerifyServerNotification(context.Background(), jwtPayload)
+		notification, err := client.ParseServerNotification(r.Context(), jwtPayload)
 		if err != nil {
 			fmt.Println("failed to parse notification: " + err.Error())
 			w.WriteHeader(http.StatusBadRequest)

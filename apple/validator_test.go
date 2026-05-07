@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -905,7 +906,7 @@ func TestGetUserMigrationInfo(t *testing.T) {
 				assert.Equal(t, "POST", r.Method)
 				assert.Equal(t, ContentType, r.Header.Get("content-type"))
 
-				body, err := ioutil.ReadAll(r.Body)
+				body, err := io.ReadAll(r.Body)
 				assert.NoError(t, err)
 				expectedBody := fmt.Sprintf("client_id=%s&client_secret=%s&transfer_sub=%s",
 					tt.req.ClientID, tt.req.ClientSecret, tt.req.TransferSub)

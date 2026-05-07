@@ -174,7 +174,6 @@ func (c *Client) GetUserMigrationInfo(ctx context.Context, req UserMigrationRequ
 }
 
 // GetTypedClaims decodes the id_token into a typed IDTokenClaims struct without verifying the signature.
-// For cryptographically verified claims, use VerifyIDToken instead.
 func GetTypedClaims(idToken string) (*IDTokenClaims, error) {
 	token, _, err := new(jwt.Parser).ParseUnverified(idToken, jwt.MapClaims{})
 	if err != nil {
