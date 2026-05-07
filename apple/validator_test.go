@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -306,7 +305,7 @@ func TestVerifyAppToken(t *testing.T) {
 				assert.Equal(t, ContentType, r.Header.Get("content-type"))
 				assert.Equal(t, AcceptHeader, r.Header.Get("accept"))
 				assert.Equal(t, UserAgent, r.Header.Get("user-agent"))
-				body, err := ioutil.ReadAll(r.Body)
+				body, err := io.ReadAll(r.Body)
 				assert.NoError(t, err)
 				expectedBody := "client_id=123&client_secret=foo&code=bar&grant_type=authorization_code"
 				expectedBody = fmt.Sprintf("client_id=%s&client_secret=%s&code=%s&grant_type=authorization_code",
@@ -437,7 +436,7 @@ func TestVerifyNonAppToken(t *testing.T) {
 				assert.Equal(t, AcceptHeader, r.Header.Get("accept"))
 				assert.Equal(t, UserAgent, r.Header.Get("user-agent"))
 
-				body, err := ioutil.ReadAll(r.Body)
+				body, err := io.ReadAll(r.Body)
 				assert.NoError(t, err)
 				expectedBody := fmt.Sprintf("client_id=%s&client_secret=%s&code=%s&grant_type=authorization_code&redirect_uri=%s",
 					tt.req.ClientID, tt.req.ClientSecret, tt.req.Code, url.QueryEscape(tt.req.RedirectURI))
@@ -558,7 +557,7 @@ func TestVerifyRefreshToken(t *testing.T) {
 				assert.Equal(t, ContentType, r.Header.Get("content-type"))
 				assert.Equal(t, AcceptHeader, r.Header.Get("accept"))
 				assert.Equal(t, UserAgent, r.Header.Get("user-agent"))
-				body, err := ioutil.ReadAll(r.Body)
+				body, err := io.ReadAll(r.Body)
 				assert.NoError(t, err)
 				expectedBody := fmt.Sprintf("client_id=%s&client_secret=%s&grant_type=refresh_token&refresh_token=%s",
 					tt.req.ClientID, tt.req.ClientSecret, tt.req.RefreshToken)
@@ -681,7 +680,7 @@ func TestRevokeRefreshToken(t *testing.T) {
 				assert.Equal(t, ContentType, r.Header.Get("content-type"))
 				assert.Equal(t, AcceptHeader, r.Header.Get("accept"))
 				assert.Equal(t, UserAgent, r.Header.Get("user-agent"))
-				body, err := ioutil.ReadAll(r.Body)
+				body, err := io.ReadAll(r.Body)
 				assert.NoError(t, err)
 				expectedBody := fmt.Sprintf("client_id=%s&client_secret=%s&token=%s&token_type_hint=refresh_token",
 					tt.req.ClientID, tt.req.ClientSecret, tt.req.RefreshToken)
@@ -806,7 +805,7 @@ func TestRevokeAccessToken(t *testing.T) {
 				assert.Equal(t, ContentType, r.Header.Get("content-type"))
 				assert.Equal(t, AcceptHeader, r.Header.Get("accept"))
 				assert.Equal(t, UserAgent, r.Header.Get("user-agent"))
-				body, err := ioutil.ReadAll(r.Body)
+				body, err := io.ReadAll(r.Body)
 				assert.NoError(t, err)
 				expectedBody := fmt.Sprintf("client_id=%s&client_secret=%s&token=%s&token_type_hint=access_token",
 					tt.req.ClientID, tt.req.ClientSecret, tt.req.AccessToken)
@@ -841,7 +840,7 @@ func TestRevokeAccessToken(t *testing.T) {
 // yourself when done
 func setupServerCompareURL(t *testing.T, expectedBody string) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		s, err := ioutil.ReadAll(r.Body)
+		s, err := io.ReadAll(r.Body)
 		assert.NoError(t, err)
 		assert.Equal(t, expectedBody, string(s))
 	}))
