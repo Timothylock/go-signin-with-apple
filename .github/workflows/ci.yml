@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: ["master"]
+  pull_request:
+
+jobs:
+  test:
+    name: Test (Go ${{ matrix.go }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go: ["1.21", "stable"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go }}
+
+      - name: Download modules
+        run: go mod download
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test
+        run: go test -v -coverprofile=coverage.txt ./...
+
+      - name: Upload coverage
+        if: matrix.go == 'stable'
+        uses: codecov/codecov-action@v4
+        with:
+          files: coverage.txt

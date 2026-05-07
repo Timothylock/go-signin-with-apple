@@ -13,10 +13,14 @@ import (
 )
 
 const (
+	// AppleIssuer is the expected issuer claim in Apple-issued tokens
+	AppleIssuer string = "https://appleid.apple.com"
 	// ValidationURL is the endpoint for verifying tokens
 	ValidationURL string = "https://appleid.apple.com/auth/token"
 	// RevokeURL is the endpoint for revoking tokens
 	RevokeURL string = "https://appleid.apple.com/auth/revoke"
+	// MigrationURL is the endpoint for migrating user identifiers across developer teams
+	MigrationURL string = "https://appleid.apple.com/auth/usermigrationinfo"
 	// ContentType is the one expected by Apple
 	ContentType string = "application/x-www-form-urlencoded"
 	// UserAgent is required by Apple or the request will fail
@@ -44,6 +48,7 @@ type HTTPClient interface {
 type Client struct {
 	validationURL string
 	revokeURL     string
+	migrationURL  string
 	client        HTTPClient
 }
 
@@ -51,6 +56,7 @@ type Client struct {
 type ClientOptions struct {
 	ValidationURL string
 	RevokeURL     string
+	MigrationURL  string
 	Client        HTTPClient
 }
 
@@ -82,13 +88,16 @@ func NewWithOptions(options ClientOptions) *Client {
 	if options.RevokeURL == "" {
 		options.RevokeURL = RevokeURL
 	}
+	if options.MigrationURL == "" {
+		options.MigrationURL = MigrationURL
+	}
 
-	client := &Client{
+	return &Client{
 		validationURL: options.ValidationURL,
 		revokeURL:     options.RevokeURL,
+		migrationURL:  options.MigrationURL,
 		client:        options.Client,
 	}
-	return client
 }
 
 // VerifyWebToken sends the WebValidationTokenRequest and gets validation result
@@ -150,6 +159,34 @@ func (c *Client) RevokeAccessToken(ctx context.Context, reqBody RevokeAccessToke
 	}
 
 	return doRevokeRequest(ctx, c.client, &result, c.revokeURL, data)
+}
+
+// GetUserMigrationInfo fetches the new user identifier for a user migrating from another developer team.
+// See https://developer.apple.com/documentation/technotes/tn3159-migrating-sign-in-with-apple-users-for-an-app-transfer
+func (c *Client) GetUserMigrationInfo(ctx context.Context, req UserMigrationRequest, resp *UserMigrationResponse) error {
+	data := url.Values{
+		"client_id":     {req.ClientID},
+		"client_secret": {req.ClientSecret},
+		"transfer_sub":  {req.TransferSub},
+	}
+
+	return doValidationRequest(ctx, c.client, resp, c.migrationURL, data)
+}
+
+// GetTypedClaims decodes the id_token into a typed IDTokenClaims struct without verifying the signature.
+// For cryptographically verified claims, use VerifyIDToken instead.
+func GetTypedClaims(idToken string) (*IDTokenClaims, error) {
+	token, _, err := new(jwt.Parser).ParseUnverified(idToken, jwt.MapClaims{})
+	if err != nil {
+		return nil, err
+	}
+
+	m, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return nil, fmt.Errorf("invalid token claims")
+	}
+
+	return idTokenClaimsFromMap(m), nil
 }
 
 // GetUniqueID decodes the id_token response and returns the unique subject ID to identify the user
@@ -228,4 +265,67 @@ func doRevokeRequest(ctx context.Context, client HTTPClient, result interface{},
 	}
 
 	return nil
+}
+
+// idTokenClaimsFromMap converts jwt.MapClaims into a typed IDTokenClaims.
+// It handles Apple's quirk of returning email_verified and is_private_email as either
+// a JSON boolean or the string "true"/"false" depending on the token version.
+func idTokenClaimsFromMap(m jwt.MapClaims) *IDTokenClaims {
+	claims := &IDTokenClaims{}
+
+	if v, ok := m["iss"].(string); ok {
+		claims.Issuer = v
+	}
+	if v, ok := m["sub"].(string); ok {
+		claims.Subject = v
+	}
+	if v, ok := m["email"].(string); ok {
+		claims.Email = v
+	}
+	if v, ok := m["nonce"].(string); ok {
+		claims.Nonce = v
+	}
+	if v, ok := m["nonce_supported"].(bool); ok {
+		claims.NonceSupported = v
+	}
+
+	// aud can be a single string or an array
+	switch v := m["aud"].(type) {
+	case string:
+		claims.Audience = v
+	case []interface{}:
+		if len(v) > 0 {
+			if s, ok := v[0].(string); ok {
+				claims.Audience = s
+			}
+		}
+	}
+
+	claims.EmailVerified = parseBoolClaim(m["email_verified"])
+	claims.IsPrivateEmail = parseBoolClaim(m["is_private_email"])
+
+	if v, ok := m["real_user_status"].(float64); ok {
+		claims.RealUserStatus = int(v)
+	}
+	if v, ok := m["auth_time"].(float64); ok {
+		claims.AuthTime = int64(v)
+	}
+	if v, ok := m["iat"].(float64); ok {
+		claims.IssuedAt = int64(v)
+	}
+	if v, ok := m["exp"].(float64); ok {
+		claims.ExpiresAt = int64(v)
+	}
+
+	return claims
+}
+
+func parseBoolClaim(v interface{}) bool {
+	switch val := v.(type) {
+	case bool:
+		return val
+	case string:
+		return val == "true"
+	}
+	return false
 }
