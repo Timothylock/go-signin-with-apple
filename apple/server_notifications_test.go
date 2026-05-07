@@ -5,6 +5,8 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -33,8 +35,9 @@ func makeNotificationToken(t *testing.T, privKey *rsa.PrivateKey, kid string, ba
 }
 
 func TestParseServerNotification(t *testing.T) {
-	privKey, err := rsa.GenerateKey(rand.Reader, 2048)
-	require.NoError(t, err)
+	privKey, jwksHandler := generateTestKey(t)
+	jwksSrv := httptest.NewServer(http.HandlerFunc(jwksHandler))
+	defer jwksSrv.Close()
 
 	validBaseClaims := jwt.MapClaims{
 		"iss": AppleIssuer,
@@ -49,10 +52,10 @@ func TestParseServerNotification(t *testing.T) {
 		"event_time": float64(time.Now().Unix()),
 	}
 
-	t.Run("valid notification is parsed correctly", func(t *testing.T) {
-		payload := makeNotificationToken(t, privKey, "test-kid", validBaseClaims, validEvents)
+	t.Run("valid notification passes verification and parses correctly", func(t *testing.T) {
+		payload := makeNotificationToken(t, privKey, testKID, validBaseClaims, validEvents)
 
-		c := New()
+		c := NewWithOptions(ClientOptions{AppleKeysURL: jwksSrv.URL})
 		claims, err := c.ParseServerNotification(context.Background(), payload)
 		require.NoError(t, err)
 
@@ -68,12 +71,36 @@ func TestParseServerNotification(t *testing.T) {
 			"sub":        "user000",
 			"event_time": float64(time.Now().Unix()),
 		}
-		payload := makeNotificationToken(t, privKey, "test-kid", validBaseClaims, deleteEvents)
+		payload := makeNotificationToken(t, privKey, testKID, validBaseClaims, deleteEvents)
 
-		c := New()
+		c := NewWithOptions(ClientOptions{AppleKeysURL: jwksSrv.URL})
 		claims, err := c.ParseServerNotification(context.Background(), payload)
 		require.NoError(t, err)
 		assert.Equal(t, "account-delete", claims.Events.Type)
+	})
+
+	t.Run("tampered payload is rejected", func(t *testing.T) {
+		otherKey, err := rsa.GenerateKey(rand.Reader, 2048)
+		require.NoError(t, err)
+		payload := makeNotificationToken(t, otherKey, testKID, validBaseClaims, validEvents)
+
+		c := NewWithOptions(ClientOptions{AppleKeysURL: jwksSrv.URL})
+		_, err = c.ParseServerNotification(context.Background(), payload)
+		assert.Error(t, err)
+	})
+
+	t.Run("expired notification is rejected", func(t *testing.T) {
+		expiredClaims := jwt.MapClaims{
+			"iss": AppleIssuer,
+			"aud": "com.example.app",
+			"iat": float64(time.Now().Add(-2 * time.Hour).Unix()),
+			"exp": float64(time.Now().Add(-1 * time.Hour).Unix()),
+		}
+		payload := makeNotificationToken(t, privKey, testKID, expiredClaims, validEvents)
+
+		c := NewWithOptions(ClientOptions{AppleKeysURL: jwksSrv.URL})
+		_, err := c.ParseServerNotification(context.Background(), payload)
+		assert.Error(t, err)
 	})
 
 	t.Run("notification without events claim returns error", func(t *testing.T) {
@@ -84,17 +111,31 @@ func TestParseServerNotification(t *testing.T) {
 			"exp": float64(time.Now().Add(time.Hour).Unix()),
 		}
 		token := jwt.NewWithClaims(jwt.SigningMethodRS256, noEventsClaims)
-		token.Header["kid"] = "test-kid"
+		token.Header["kid"] = testKID
 		payload, err := token.SignedString(privKey)
 		require.NoError(t, err)
 
-		c := New()
+		c := NewWithOptions(ClientOptions{AppleKeysURL: jwksSrv.URL})
 		_, err = c.ParseServerNotification(context.Background(), payload)
 		assert.Error(t, err)
 	})
 
+	t.Run("skip verification bypasses signature check", func(t *testing.T) {
+		otherKey, err := rsa.GenerateKey(rand.Reader, 2048)
+		require.NoError(t, err)
+		payload := makeNotificationToken(t, otherKey, testKID, validBaseClaims, validEvents)
+
+		c := NewWithOptions(ClientOptions{
+			SkipIDTokenVerification: true,
+			AppleKeysURL:            "http://should-not-be-called.invalid",
+		})
+		claims, err := c.ParseServerNotification(context.Background(), payload)
+		require.NoError(t, err)
+		assert.Equal(t, "consent-revoked", claims.Events.Type)
+	})
+
 	t.Run("malformed jwt returns error", func(t *testing.T) {
-		c := New()
+		c := NewWithOptions(ClientOptions{SkipIDTokenVerification: true})
 		_, err := c.ParseServerNotification(context.Background(), "not.a.jwt")
 		assert.Error(t, err)
 	})

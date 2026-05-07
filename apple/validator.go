@@ -2,11 +2,13 @@ package apple
 
 import (
 	"context"
+	"crypto"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -49,15 +51,40 @@ type Client struct {
 	validationURL string
 	revokeURL     string
 	migrationURL  string
+	keysURL       string
+	skipVerify    bool
 	client        HTTPClient
+
+	jwksMu        sync.RWMutex
+	jwksCache     map[string]crypto.PublicKey
+	jwksFetchedAt time.Time
+	jwksCacheTTL  time.Duration
 }
 
 // ClientOptions is a struct to hold the options for the client
 type ClientOptions struct {
+	// ValidationURL overrides the token validation endpoint.
+	// Defaults to https://appleid.apple.com/auth/token.
 	ValidationURL string
-	RevokeURL     string
-	MigrationURL  string
-	Client        HTTPClient
+	// RevokeURL overrides the token revocation endpoint.
+	// Defaults to https://appleid.apple.com/auth/revoke.
+	RevokeURL string
+	// MigrationURL overrides the user migration endpoint used by GetUserMigrationInfo.
+	// Defaults to https://appleid.apple.com/auth/usermigrationinfo.
+	MigrationURL string
+	// AppleKeysURL overrides the JWKS endpoint used to fetch Apple's public keys.
+	// Defaults to https://appleid.apple.com/auth/keys.
+	AppleKeysURL string
+	// JWKSCacheTTL controls how long Apple's public keys are cached before being
+	// re-fetched. Defaults to 15 minutes. Apple rotates keys infrequently; values
+	// between 5 and 60 minutes are reasonable for production.
+	JWKSCacheTTL time.Duration
+	// SkipIDTokenVerification disables RS256 signature verification in VerifyIDToken
+	// and ParseServerNotification. For use in tests only.
+	SkipIDTokenVerification bool
+	// Client overrides the HTTP client used for all outbound requests.
+	// Defaults to an http.Client with a 5-second timeout.
+	Client HTTPClient
 }
 
 // New creates a Client object with the default URLs and a default http client
@@ -91,11 +118,21 @@ func NewWithOptions(options ClientOptions) *Client {
 	if options.MigrationURL == "" {
 		options.MigrationURL = MigrationURL
 	}
+	if options.AppleKeysURL == "" {
+		options.AppleKeysURL = AppleKeysURL
+	}
+	if options.JWKSCacheTTL == 0 {
+		options.JWKSCacheTTL = 15 * time.Minute
+	}
 
 	return &Client{
 		validationURL: options.ValidationURL,
 		revokeURL:     options.RevokeURL,
 		migrationURL:  options.MigrationURL,
+		keysURL:       options.AppleKeysURL,
+		skipVerify:    options.SkipIDTokenVerification,
+		jwksCacheTTL:  options.JWKSCacheTTL,
+		jwksCache:     make(map[string]crypto.PublicKey),
 		client:        options.Client,
 	}
 }

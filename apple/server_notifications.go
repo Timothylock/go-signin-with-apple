@@ -8,23 +8,53 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-// ParseServerNotification parses the JWT sent by Apple's server-to-server notification
-// system and returns the typed event payload.
+// ParseServerNotification verifies and parses the JWT sent by Apple's server-to-server
+// notification system, returning the typed event payload.
 //
 // Apple sends these notifications when a user deletes their account or revokes Sign in with Apple
 // access. The webhook URL is configured in the Apple Developer portal.
 // See https://developer.apple.com/documentation/technotes/tn3194-handling-account-deletions-and-revoking-tokens-for-sign-in-with-apple
 //
-// Note: signature verification against Apple's public keys is not yet implemented.
-func (c *Client) ParseServerNotification(_ context.Context, jwtPayload string) (*ServerNotificationClaims, error) {
-	token, _, err := new(jwt.Parser).ParseUnverified(jwtPayload, jwt.MapClaims{})
-	if err != nil {
-		return nil, err
-	}
+// The JWT signature is verified against Apple's public JWKS using the same cached key set as
+// VerifyIDToken. When ClientOptions.SkipIDTokenVerification is true, signature verification
+// is skipped (for use in tests only).
+func (c *Client) ParseServerNotification(ctx context.Context, jwtPayload string) (*ServerNotificationClaims, error) {
+	var m jwt.MapClaims
 
-	m, ok := token.Claims.(jwt.MapClaims)
-	if !ok {
-		return nil, fmt.Errorf("invalid token claims")
+	if c.skipVerify {
+		token, _, err := new(jwt.Parser).ParseUnverified(jwtPayload, jwt.MapClaims{})
+		if err != nil {
+			return nil, err
+		}
+		claims, ok := token.Claims.(jwt.MapClaims)
+		if !ok {
+			return nil, fmt.Errorf("invalid token claims")
+		}
+		m = claims
+	} else {
+		token, err := jwt.ParseWithClaims(jwtPayload, jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
+			if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
+				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+			}
+			kid, ok := token.Header["kid"].(string)
+			if !ok {
+				return nil, fmt.Errorf("missing kid in token header")
+			}
+			return c.getPublicKey(ctx, kid)
+		},
+			jwt.WithIssuer(AppleIssuer),
+			jwt.WithExpirationRequired(),
+			// aud is not validated here because ParseServerNotification has no clientID
+			// parameter — the caller registers a single webhook endpoint for all apps.
+		)
+		if err != nil {
+			return nil, err
+		}
+		claims, ok := token.Claims.(jwt.MapClaims)
+		if !ok || !token.Valid {
+			return nil, fmt.Errorf("invalid token")
+		}
+		m = claims
 	}
 
 	return serverNotificationClaimsFromMap(m)
