@@ -26,7 +26,8 @@ Full working examples can be found in the [example/](example/) directory:
 | Validate a refresh token | [refresh_validation_example_test.go](example/refresh_validation_example_test.go) |
 | Revoke an access token | [revoke_access_token_example_test.go](example/revoke_access_token_example_test.go) |
 | Revoke a refresh token | [revoke_refresh_token_example_test.go](example/revoke_refresh_token_example_test.go) |
-| Get typed ID token claims | [get_typed_claims_example_test.go](example/get_typed_claims_example_test.go) |
+| Verify an ID token (with signature check) | [verify_id_token_example_test.go](example/verify_id_token_example_test.go) |
+| Get typed ID token claims (no signature check) | [get_typed_claims_example_test.go](example/get_typed_claims_example_test.go) |
 | Migrate users across developer teams | [user_migration_example_test.go](example/user_migration_example_test.go) |
 | Handle server-to-server notifications | [server_notification_example_test.go](example/server_notification_example_test.go) |
 
@@ -76,12 +77,26 @@ Check `resp.Error` before using the response — Apple returns errors in the bod
 
 ---
 
-### Reading ID Token Claims
+### Which ID token method should I use?
 
-The `id_token` in the validation response is a JWT containing the user's identity. Use `GetTypedClaims` to decode it into a struct with proper Go types:
+The right choice depends on **who gave you the token**:
+
+| Token source | Method | Why |
+|---|---|---|
+| Client device (iOS app, web browser) | `VerifyIDToken` | Token passed through the client — signature must be checked |
+| Apple's API response (`VerifyAppToken` / `VerifyWebToken`) | `GetTypedClaims` | Your server fetched it over TLS directly from Apple — no tampering possible |
+
+### Verifying an ID Token from a Client Device
+
+When an iOS app or browser completes Sign in with Apple, the Apple SDK hands the client an `id_token`. The client sends that token to your server. Because it traveled through the client it could have been swapped, so you must verify the RS256 signature before trusting it.
 
 ```go
-claims, err := apple.GetTypedClaims(resp.IDToken)
+client := apple.New()
+
+claims, err := client.VerifyIDToken(ctx, idToken, clientID)
+if err != nil {
+    // token is invalid, expired, or not from Apple
+}
 
 fmt.Println(claims.Subject)        // stable unique user ID
 fmt.Println(claims.Email)          // user's email (if requested)
@@ -90,9 +105,25 @@ fmt.Println(claims.IsPrivateEmail) // bool — true if Apple private relay addre
 fmt.Println(claims.RealUserStatus) // 0=unsupported, 1=unknown, 2=likelyReal (iOS 14+)
 ```
 
-`GetTypedClaims` correctly handles Apple's older token format where `email_verified` is returned as the string `"true"` instead of a JSON boolean.
+`VerifyIDToken` fetches Apple's public JWKS, verifies the RS256 signature, and validates that `iss`, `aud`, and `exp` are all correct. The JWKS is cached for 15 minutes by default and refreshed automatically on key rotation.
 
-> **Note:** `GetTypedClaims` and `GetClaims` decode the token without verifying its signature. For most server-side flows this is safe because you obtained the token directly from Apple's validation endpoint over TLS. If you need standalone signature verification, it is on the roadmap.
+Tune the cache TTL via `ClientOptions`:
+
+```go
+client := apple.NewWithOptions(apple.ClientOptions{
+    JWKSCacheTTL: 30 * time.Minute,
+})
+```
+
+### Reading ID Token Claims from Apple's API Response
+
+When your server calls `VerifyAppToken` or `VerifyWebToken`, Apple returns an `id_token` directly to you over TLS. Because your server made the request, the token never passed through any client and cannot have been tampered with. Signature verification is redundant — use `GetTypedClaims` to decode the claims directly:
+
+```go
+claims, err := apple.GetTypedClaims(resp.IDToken)
+```
+
+`GetTypedClaims` handles Apple's older token format where `email_verified` is returned as the string `"true"` instead of a JSON boolean.
 
 ---
 
@@ -172,7 +203,7 @@ http.HandleFunc("/apple/notifications", func(w http.ResponseWriter, r *http.Requ
 
 Register your webhook URL under **Certificates, Identifiers & Profiles → your App ID → Sign in with Apple** in the Apple Developer portal. See [TN3194](https://developer.apple.com/documentation/technotes/tn3194-handling-account-deletions-and-revoking-tokens-for-sign-in-with-apple) for full details.
 
-> **Note:** Signature verification for server notifications is on the roadmap. The JWT is currently parsed without verifying Apple's RS256 signature.
+`ParseServerNotification` verifies the RS256 signature using the same JWKS cache as `VerifyIDToken`.
 
 ---
 
