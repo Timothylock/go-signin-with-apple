@@ -9,6 +9,7 @@ import (
 	"math/big"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -202,17 +203,17 @@ func TestVerifyIDTokenSkipVerification(t *testing.T) {
 func TestJWKSCacheIsTimed(t *testing.T) {
 	privKey, jwksHandler := generateTestKey(t)
 
-	callCount := 0
+	var callCount atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		callCount++
+		callCount.Add(1)
 		jwksHandler(w, r)
 	}))
 	defer srv.Close()
 
-	// Very short TTL so the second call sees a stale cache
+	// TTL of 100ms with a 200ms sleep gives ample headroom on loaded CI runners.
 	c := NewWithOptions(ClientOptions{
 		AppleKeysURL: srv.URL,
-		JWKSCacheTTL: 50 * time.Millisecond,
+		JWKSCacheTTL: 100 * time.Millisecond,
 	})
 
 	claims := jwt.MapClaims{
@@ -226,26 +227,26 @@ func TestJWKSCacheIsTimed(t *testing.T) {
 
 	_, err := c.VerifyIDToken(context.Background(), token, "com.example.app")
 	require.NoError(t, err)
-	assert.Equal(t, 1, callCount, "JWKS should be fetched once")
+	assert.Equal(t, int32(1), callCount.Load(), "JWKS should be fetched once")
 
 	// Second call within TTL — served from cache
 	_, err = c.VerifyIDToken(context.Background(), token, "com.example.app")
 	require.NoError(t, err)
-	assert.Equal(t, 1, callCount, "JWKS should be cached on second call")
+	assert.Equal(t, int32(1), callCount.Load(), "JWKS should be cached on second call")
 
 	// Wait for TTL to expire, then verify cache is refreshed
-	time.Sleep(60 * time.Millisecond)
+	time.Sleep(200 * time.Millisecond)
 	_, err = c.VerifyIDToken(context.Background(), token, "com.example.app")
 	require.NoError(t, err)
-	assert.Equal(t, 2, callCount, "JWKS should be refreshed after TTL expires")
+	assert.Equal(t, int32(2), callCount.Load(), "JWKS should be refreshed after TTL expires")
 }
 
 func TestJWKSCacheRefreshesOnUnknownKID(t *testing.T) {
 	privKey, jwksHandler := generateTestKey(t)
 
-	callCount := 0
+	var callCount atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		callCount++
+		callCount.Add(1)
 		jwksHandler(w, r)
 	}))
 	defer srv.Close()
@@ -265,7 +266,7 @@ func TestJWKSCacheRefreshesOnUnknownKID(t *testing.T) {
 	// First call — fetches JWKS
 	_, err := c.VerifyIDToken(context.Background(), makeIDToken(t, privKey, validClaims), "com.example.app")
 	require.NoError(t, err)
-	assert.Equal(t, 1, callCount)
+	assert.Equal(t, int32(1), callCount.Load())
 
 	// Token with an unknown kid — should trigger a second JWKS fetch then fail
 	unknownKIDToken := func() string {
@@ -276,7 +277,7 @@ func TestJWKSCacheRefreshesOnUnknownKID(t *testing.T) {
 	}()
 	_, err = c.VerifyIDToken(context.Background(), unknownKIDToken, "com.example.app")
 	assert.Error(t, err)
-	assert.Equal(t, 2, callCount, "unknown kid should trigger a JWKS refresh")
+	assert.Equal(t, int32(2), callCount.Load(), "unknown kid should trigger a JWKS refresh")
 }
 
 func TestGetTypedClaims(t *testing.T) {

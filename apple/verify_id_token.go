@@ -112,6 +112,10 @@ func (c *Client) refreshJWKS(ctx context.Context) error {
 	}
 	defer res.Body.Close()
 
+	if res.StatusCode != http.StatusOK {
+		return fmt.Errorf("Apple JWKS endpoint returned HTTP %d", res.StatusCode)
+	}
+
 	var jwks jwksResponse
 	if err := json.NewDecoder(res.Body).Decode(&jwks); err != nil {
 		return fmt.Errorf("failed to decode Apple JWKS: %w", err)

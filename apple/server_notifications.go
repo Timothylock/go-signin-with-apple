@@ -44,6 +44,8 @@ func (c *Client) ParseServerNotification(ctx context.Context, jwtPayload string)
 		},
 			jwt.WithIssuer(AppleIssuer),
 			jwt.WithExpirationRequired(),
+			// aud is not validated here because ParseServerNotification has no clientID
+			// parameter — the caller registers a single webhook endpoint for all apps.
 		)
 		if err != nil {
 			return nil, err
