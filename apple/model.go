@@ -1,5 +1,79 @@
 package apple
 
+// IDTokenClaims contains the parsed and typed claims from an Apple ID token.
+// EmailVerified and IsPrivateEmail handle Apple's quirk of returning these as
+// either a JSON boolean or the string "true"/"false" depending on token version.
+type IDTokenClaims struct {
+	Issuer         string `json:"iss"`
+	Audience       string `json:"aud"`
+	Subject        string `json:"sub"`
+	Email          string `json:"email"`
+	EmailVerified  bool   `json:"email_verified"`
+	IsPrivateEmail bool   `json:"is_private_email"`
+	// RealUserStatus indicates likelihood the user is real: 0=unsupported, 1=unknown, 2=likelyReal.
+	// Available on iOS 14+ device tokens.
+	RealUserStatus int    `json:"real_user_status"`
+	Nonce          string `json:"nonce"`
+	NonceSupported bool   `json:"nonce_supported"`
+	AuthTime       int64  `json:"auth_time"`
+	IssuedAt       int64  `json:"iat"`
+	ExpiresAt      int64  `json:"exp"`
+}
+
+// UserMigrationRequest is used to migrate user identifiers when an app transfers between developer teams.
+// See https://developer.apple.com/documentation/technotes/tn3159-migrating-sign-in-with-apple-users-for-an-app-transfer
+type UserMigrationRequest struct {
+	// ClientID is the recipient team's Services ID
+	ClientID string
+
+	// ClientSecret is the recipient team's JWT client secret
+	ClientSecret string
+
+	// TransferSub is the transfer identifier provided by the original team
+	TransferSub string
+}
+
+// UserMigrationResponse is the result from the user migration info endpoint
+type UserMigrationResponse struct {
+	// Sub is the new user identifier associated with the recipient team
+	Sub string `json:"sub"`
+
+	// Email is the user's email address if available
+	Email string `json:"email"`
+
+	// EmailVerified indicates whether the email address is verified
+	EmailVerified bool `json:"email_verified"`
+
+	// Error is the error code if the request failed
+	Error string `json:"error"`
+
+	// ErrorDescription is a human-readable description of the error
+	ErrorDescription string `json:"error_description"`
+}
+
+// ServerNotificationPayload is the event data embedded in Apple's server-to-server notification JWTs.
+// See https://developer.apple.com/documentation/technotes/tn3194-handling-account-deletions-and-revoking-tokens-for-sign-in-with-apple
+type ServerNotificationPayload struct {
+	// Type is the event type: "consent-revoked" or "account-delete"
+	Type string `json:"type"`
+
+	// Sub is the user identifier affected by the event
+	Sub string `json:"sub"`
+
+	// EventTime is the Unix timestamp when the event occurred
+	EventTime int64 `json:"event_time"`
+}
+
+// ServerNotificationClaims contains the parsed claims from an Apple server-to-server notification JWT
+type ServerNotificationClaims struct {
+	Issuer    string                    `json:"iss"`
+	Audience  string                    `json:"aud"`
+	ExpiresAt int64                     `json:"exp"`
+	IssuedAt  int64                     `json:"iat"`
+	JTI       string                    `json:"jti"`
+	Events    ServerNotificationPayload `json:"events"`
+}
+
 // WebValidationTokenRequest is based off of https://developer.apple.com/documentation/signinwithapplerestapi/generate_and_validate_tokens
 type WebValidationTokenRequest struct {
 	// ClientID is the "Services ID" value that you get when navigating to your "sign in with Apple"-enabled service ID

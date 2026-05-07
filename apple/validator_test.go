@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -844,4 +845,99 @@ func setupServerCompareURL(t *testing.T, expectedBody string) *httptest.Server {
 		assert.NoError(t, err)
 		assert.Equal(t, expectedBody, string(s))
 	}))
+}
+
+func TestGetUserMigrationInfo(t *testing.T) {
+	tests := []struct {
+		name           string
+		req            UserMigrationRequest
+		serverResponse string
+		serverStatus   int
+		wantErr        bool
+		wantResp       UserMigrationResponse
+	}{
+		{
+			name: "successful migration info",
+			req: UserMigrationRequest{
+				ClientID:     "com.example.app",
+				ClientSecret: "secret123",
+				TransferSub:  "transfer_sub_abc",
+			},
+			serverResponse: `{"sub":"new_user_id","email":"user@example.com","email_verified":true}`,
+			serverStatus:   200,
+			wantErr:        false,
+			wantResp: UserMigrationResponse{
+				Sub:           "new_user_id",
+				Email:         "user@example.com",
+				EmailVerified: true,
+			},
+		},
+		{
+			name: "error response from Apple",
+			req: UserMigrationRequest{
+				ClientID:     "com.example.app",
+				ClientSecret: "secret123",
+				TransferSub:  "invalid_transfer_sub",
+			},
+			serverResponse: `{"error":"invalid_request","error_description":"transfer_sub is invalid"}`,
+			serverStatus:   400,
+			wantErr:        false,
+			wantResp: UserMigrationResponse{
+				Error:            "invalid_request",
+				ErrorDescription: "transfer_sub is invalid",
+			},
+		},
+		{
+			name: "malformed response causes decode error",
+			req: UserMigrationRequest{
+				ClientID:     "com.example.app",
+				ClientSecret: "secret123",
+				TransferSub:  "transfer_sub_abc",
+			},
+			serverResponse: "<html>error</html>",
+			serverStatus:   500,
+			wantErr:        true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, "POST", r.Method)
+				assert.Equal(t, ContentType, r.Header.Get("content-type"))
+
+				body, err := io.ReadAll(r.Body)
+				assert.NoError(t, err)
+				expectedBody := fmt.Sprintf("client_id=%s&client_secret=%s&transfer_sub=%s",
+					tt.req.ClientID, tt.req.ClientSecret, tt.req.TransferSub)
+				assert.Equal(t, expectedBody, string(body))
+
+				w.WriteHeader(tt.serverStatus)
+				w.Write([]byte(tt.serverResponse))
+			}))
+			defer srv.Close()
+
+			c := NewWithOptions(ClientOptions{
+				MigrationURL: srv.URL,
+			})
+			var resp UserMigrationResponse
+			err := c.GetUserMigrationInfo(context.Background(), tt.req, &resp)
+
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.wantResp.Sub, resp.Sub)
+				assert.Equal(t, tt.wantResp.Email, resp.Email)
+				assert.Equal(t, tt.wantResp.EmailVerified, resp.EmailVerified)
+				assert.Equal(t, tt.wantResp.Error, resp.Error)
+				assert.Equal(t, tt.wantResp.ErrorDescription, resp.ErrorDescription)
+			}
+		})
+	}
+}
+
+func TestNewWithOptionsDefaults(t *testing.T) {
+	c := New()
+	assert.Equal(t, MigrationURL, c.migrationURL)
 }
