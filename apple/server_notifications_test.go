@@ -139,4 +139,10 @@ func TestParseServerNotification(t *testing.T) {
 		_, err := c.ParseServerNotification(context.Background(), "not.a.jwt")
 		assert.Error(t, err)
 	})
+
+	t.Run("nil client returns error", func(t *testing.T) {
+		var c *Client
+		_, err := c.ParseServerNotification(context.Background(), "token")
+		assert.EqualError(t, err, "client is nil")
+	})
 }

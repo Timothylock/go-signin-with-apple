@@ -19,6 +19,9 @@ import (
 // VerifyIDToken. When ClientOptions.SkipIDTokenVerification is true, signature verification
 // is skipped (for use in tests only).
 func (c *Client) ParseServerNotification(ctx context.Context, jwtPayload string) (*ServerNotificationClaims, error) {
+	if c == nil {
+		return nil, fmt.Errorf("client is nil")
+	}
 	var m jwt.MapClaims
 
 	if c.skipVerify {

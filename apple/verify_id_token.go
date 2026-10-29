@@ -41,6 +41,9 @@ type jwkKey struct {
 // When ClientOptions.SkipIDTokenVerification is true, signature verification is skipped and
 // claims are decoded without validation. For use in tests only.
 func (c *Client) VerifyIDToken(ctx context.Context, idToken, clientID string) (*IDTokenClaims, error) {
+	if c == nil {
+		return nil, fmt.Errorf("client is nil")
+	}
 	if c.skipVerify {
 		return GetTypedClaims(idToken)
 	}
@@ -141,16 +144,35 @@ func (c *Client) refreshJWKS(ctx context.Context) error {
 	return nil
 }
 
+func decodeBase64URL(s string) ([]byte, error) {
+	if b, err := base64.RawURLEncoding.DecodeString(s); err == nil {
+		return b, nil
+	}
+	return base64.URLEncoding.DecodeString(s)
+}
+
 func jwkToRSAPublicKey(key jwkKey) (*rsa.PublicKey, error) {
-	nBytes, err := base64.RawURLEncoding.DecodeString(key.N)
+	nBytes, err := decodeBase64URL(key.N)
 	if err != nil {
 		return nil, fmt.Errorf("invalid modulus: %w", err)
 	}
-	eBytes, err := base64.RawURLEncoding.DecodeString(key.E)
+	if len(nBytes) == 0 {
+		return nil, fmt.Errorf("invalid modulus: modulus cannot be empty")
+	}
+	eBytes, err := decodeBase64URL(key.E)
 	if err != nil {
 		return nil, fmt.Errorf("invalid exponent: %w", err)
 	}
+	if len(eBytes) == 0 {
+		return nil, fmt.Errorf("invalid exponent: exponent cannot be empty")
+	}
 	n := new(big.Int).SetBytes(nBytes)
+	if n.Sign() <= 0 {
+		return nil, fmt.Errorf("invalid modulus: modulus must be greater than zero")
+	}
 	e := int(new(big.Int).SetBytes(eBytes).Int64())
+	if e <= 0 {
+		return nil, fmt.Errorf("invalid exponent: exponent must be greater than zero")
+	}
 	return &rsa.PublicKey{N: n, E: e}, nil
 }

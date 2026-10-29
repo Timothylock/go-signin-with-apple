@@ -303,3 +303,43 @@ func TestGetTypedClaimsInvalidToken(t *testing.T) {
 	_, err := GetTypedClaims("not.a.token")
 	assert.Error(t, err)
 }
+
+func TestJWKToRSAPublicKey(t *testing.T) {
+	privKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(t, err)
+
+	validN := base64.RawURLEncoding.EncodeToString(privKey.PublicKey.N.Bytes())
+	validE := base64.RawURLEncoding.EncodeToString(big.NewInt(int64(privKey.PublicKey.E)).Bytes())
+
+	// Test valid raw URL-encoded key
+	pub, err := jwkToRSAPublicKey(jwkKey{N: validN, E: validE})
+	require.NoError(t, err)
+	assert.Equal(t, privKey.PublicKey.N, pub.N)
+	assert.Equal(t, privKey.PublicKey.E, pub.E)
+
+	// Test valid padded URL-encoded key
+	paddedN := base64.URLEncoding.EncodeToString(privKey.PublicKey.N.Bytes())
+	paddedE := base64.URLEncoding.EncodeToString(big.NewInt(int64(privKey.PublicKey.E)).Bytes())
+	pubPadded, err := jwkToRSAPublicKey(jwkKey{N: paddedN, E: paddedE})
+	require.NoError(t, err)
+	assert.Equal(t, privKey.PublicKey.N, pubPadded.N)
+	assert.Equal(t, privKey.PublicKey.E, pubPadded.E)
+
+	// Test empty modulus
+	_, err = jwkToRSAPublicKey(jwkKey{N: "", E: validE})
+	assert.ErrorContains(t, err, "modulus cannot be empty")
+
+	// Test empty exponent
+	_, err = jwkToRSAPublicKey(jwkKey{N: validN, E: ""})
+	assert.ErrorContains(t, err, "exponent cannot be empty")
+
+	// Test invalid base64
+	_, err = jwkToRSAPublicKey(jwkKey{N: "???", E: validE})
+	assert.Error(t, err)
+}
+
+func TestVerifyIDToken_NilClient(t *testing.T) {
+	var c *Client
+	_, err := c.VerifyIDToken(context.Background(), "token", "client-id")
+	assert.EqualError(t, err, "client is nil")
+}
